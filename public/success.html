@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRAPE — Order Confirmed</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#050505;
+    --panel:#0d0d0d;
+    --panel-2:#111111;
+    --line:rgba(255,255,255,0.08);
+    --line-2:rgba(200,255,0,0.16);
+    --text:#f0ede6;
+    --muted:rgba(240,237,230,0.62);
+    --soft:rgba(240,237,230,0.26);
+    --accent:#c8ff00;
+  }
+  html{scroll-behavior:smooth}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle at top left, rgba(200,255,0,0.08), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(255,255,255,0.05), transparent 24%),
+      linear-gradient(180deg, #030303 0%, #070707 100%);
+    color:var(--text);
+    font-family:'Space Grotesk',sans-serif;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    opacity:0.02;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  ::selection{background:var(--accent);color:#000}
+  .page{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px;
+  }
+  .card{
+    position:relative;
+    width:min(100%, 980px);
+    border:0.5px solid var(--line);
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    backdrop-filter:blur(22px);
+    box-shadow:0 40px 120px rgba(0,0,0,0.5);
+    overflow:hidden;
+  }
+  .card::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:linear-gradient(135deg, rgba(200,255,0,0.04), transparent 40%);
+    pointer-events:none;
+  }
+  .hero{
+    padding:34px 34px 26px;
+    border-bottom:0.5px solid var(--line);
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  }
+  .eyebrow{
+    font-size:9px;
+    letter-spacing:6px;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:16px;
+  }
+  h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:clamp(58px, 9vw, 126px);
+    line-height:0.88;
+    letter-spacing:2px;
+    margin-bottom:14px;
+  }
+  .subtitle{
+    max-width:640px;
+    font-size:14px;
+    line-height:2;
+    color:var(--muted);
+    letter-spacing:0.2px;
+  }
+  .content{
+    display:grid;
+    grid-template-columns:1.25fr 0.85fr;
+    gap:0;
+  }
+  .panel{
+    padding:30px 34px 34px;
+  }
+  .panel + .panel{
+    border-left:0.5px solid var(--line);
+    background:rgba(255,255,255,0.01);
+  }
+  .section-title{
+    font-size:9px;
+    letter-spacing:5px;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:18px;
+  }
+  .receipt{
+    border:0.5px solid var(--line);
+    background:rgba(255,255,255,0.015);
+  }
+  .row{
+    display:flex;
+    justify-content:space-between;
+    gap:18px;
+    padding:15px 16px;
+    border-bottom:0.5px solid rgba(255,255,255,0.05);
+  }
+  .row:last-child{border-bottom:none}
+  .label{
+    color:var(--soft);
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    flex:0 0 auto;
+  }
+  .value{
+    color:var(--text);
+    font-size:13px;
+    line-height:1.7;
+    text-align:right;
+    word-break:break-word;
+  }
+  .value.emph{color:var(--accent);font-weight:700}
+  .tracking-box{
+    margin-top:22px;
+    border:0.5px solid rgba(200,255,0,0.18);
+    background:rgba(200,255,0,0.05);
+    padding:18px;
+  }
+  .tracking-box .label{margin-bottom:8px;display:block}
+  .tracking-id{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:38px;
+    letter-spacing:4px;
+    line-height:1;
+    color:var(--accent);
+  }
+  .notice{
+    padding:18px 20px;
+    border:0.5px solid var(--line);
+    background:rgba(255,255,255,0.02);
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.9;
+  }
+  .status-banner{
+    margin-bottom:18px;
+    padding:13px 16px;
+    border:0.5px solid rgba(200,255,0,0.22);
+    background:rgba(200,255,0,0.06);
+    color:var(--accent);
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    display:none;
+  }
+  .status-banner.show{display:block}
+  .status-banner.error{
+    border-color:rgba(255,120,120,0.22);
+    background:rgba(255,120,120,0.08);
+    color:#ffb1b1;
+  }
+  .actions{
+    padding:0 34px 34px;
+    display:flex;
+    justify-content:flex-end;
+  }
+  .button{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:15px 28px;
+    border:0.5px solid var(--accent);
+    background:var(--accent);
+    color:#000;
+    text-decoration:none;
+    font-size:10px;
+    letter-spacing:5px;
+    text-transform:uppercase;
+    font-weight:800;
+    transition:transform .25s ease, box-shadow .25s ease, background .25s ease;
+  }
+  .button:hover{
+    transform:translateY(-2px);
+    background:#d6ff1a;
+    box-shadow:0 14px 36px rgba(200,255,0,0.18);
+  }
+  .loading{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    color:var(--muted);
+    font-size:12px;
+    letter-spacing:4px;
+    text-transform:uppercase;
+  }
+  .spinner{
+    width:16px;height:16px;
+    border-radius:50%;
+    border:1.5px solid rgba(200,255,0,0.14);
+    border-top-color:var(--accent);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (max-width: 900px){
+    .content{grid-template-columns:1fr}
+    .panel + .panel{border-left:none;border-top:0.5px solid var(--line)}
+    .actions{justify-content:stretch}
+    .button{width:100%}
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <main class="card">
+      <section class="hero">
+        <div class="eyebrow">DRAPE • Order Verified</div>
+        <h1>Thank You for Your Order!</h1>
+        <p class="subtitle" id="heroCopy">Your payment is being verified against our secure backend. Once confirmed, your order will be marked as paid and readied for premium fulfillment.</p>
+      </section>
+
+      <div class="content">
+        <section class="panel">
+          <div id="statusBanner" class="status-banner">Verifying payment...</div>
+          <div class="section-title">Receipt Summary</div>
+          <div class="receipt" id="receiptCard">
+            <div class="row"><span class="label">Order Reference</span><span class="value emph" id="orderRef">—</span></div>
+            <div class="row"><span class="label">Customer</span><span class="value" id="customerName">—</span></div>
+            <div class="row"><span class="label">Product</span><span class="value" id="productName">—</span></div>
+            <div class="row"><span class="label">Size</span><span class="value" id="productSize">—</span></div>
+            <div class="row"><span class="label">Color</span><span class="value" id="productColor">—</span></div>
+            <div class="row"><span class="label">Quantity</span><span class="value">1</span></div>
+            <div class="row"><span class="label">Price</span><span class="value" id="productPrice">—</span></div>
+            <div class="row"><span class="label">Payment Status</span><span class="value emph" id="paymentStatus">Pending</span></div>
+            <div class="row"><span class="label">Shipping Address</span><span class="value" id="shippingAddress">—</span></div>
+            <div class="row"><span class="label">Pincode</span><span class="value" id="pincode">—</span></div>
+          </div>
+
+          <div class="tracking-box">
+            <span class="label">Tracking ID</span>
+            <div class="tracking-id" id="trackingId">DRAPE-TRACK-PENDING</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-title">Order Status</div>
+          <div class="notice" id="statusCopy">
+            We are checking your payment with our local backend right now. If the backend confirms the Cashfree order, the order will be updated from pending to paid in Supabase automatically.
+          </div>
+          <div style="height:22px"></div>
+          <div class="notice">
+            Continue shopping whenever you are ready. Your DRAPE order will remain secured in our system and proceed to the next fulfillment step after payment confirmation.
+          </div>
+        </section>
+      </div>
+
+      <div class="actions">
+        <a class="button" href="index.html">Continue Shopping</a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function() {
+      const backendBase = 'http://localhost:5000';
+      const params = new URLSearchParams(window.location.search);
+      const orderId = params.get('order_id') || params.get('orderId') || params.get('cf_order_id') || params.get('cfOrderId') || params.get('payment_session_id') || '';
+
+      const elements = {
+        statusBanner: document.getElementById('statusBanner'),
+        heroCopy: document.getElementById('heroCopy'),
+        statusCopy: document.getElementById('statusCopy'),
+        orderRef: document.getElementById('orderRef'),
+        customerName: document.getElementById('customerName'),
+        productName: document.getElementById('productName'),
+        productSize: document.getElementById('productSize'),
+        productColor: document.getElementById('productColor'),
+        productPrice: document.getElementById('productPrice'),
+        paymentStatus: document.getElementById('paymentStatus'),
+        shippingAddress: document.getElementById('shippingAddress'),
+        pincode: document.getElementById('pincode'),
+        trackingId: document.getElementById('trackingId'),
+      };
+
+      function formatCurrency(value) {
+        const amount = Number(value || 0);
+        return '₹' + amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      function setBanner(message, isError) {
+        elements.statusBanner.textContent = message;
+        elements.statusBanner.classList.add('show');
+        elements.statusBanner.classList.toggle('error', !!isError);
+      }
+
+      function setReceiptFromOrder(order, verification) {
+        const resolvedReference = (order && (order.cf_order_id || order.id)) || orderId || '—';
+        elements.orderRef.textContent = resolvedReference;
+        elements.customerName.textContent = order && order.customer_name ? String(order.customer_name) : 'DRAPE Customer';
+        elements.productName.textContent = order && order.product_name ? String(order.product_name) : 'DRAPE order';
+        elements.productSize.textContent = order && order.selected_size ? String(order.selected_size) : '—';
+        elements.productColor.textContent = order && order.selected_color ? String(order.selected_color) : '—';
+        elements.productPrice.textContent = order && order.product_price !== undefined ? formatCurrency(order.product_price) : '—';
+        elements.paymentStatus.textContent = order && order.payment_status ? String(order.payment_status).toUpperCase() : 'PENDING';
+        elements.shippingAddress.textContent = order && order.shipping_address ? String(order.shipping_address) : '—';
+        elements.pincode.textContent = order && order.pincode ? String(order.pincode) : '—';
+        elements.trackingId.textContent = (verification && verification.cf_payment_id)
+          ? 'TRK-' + String(verification.cf_payment_id).slice(0, 12).toUpperCase()
+          : (orderId ? 'TRK-' + orderId.slice(0, 12).toUpperCase() : 'DRAPE-TRACK-PENDING');
+      }
+
+      async function verifyPayment() {
+        if (!orderId) {
+          setBanner('Missing order reference in the redirect URL.', true);
+          elements.statusCopy.textContent = 'Cashfree did not include an order reference. Please contact support with your payment receipt.';
+          return;
+        }
+
+        setBanner('Verifying payment with the DRAPE backend...', false);
+        elements.orderRef.textContent = orderId;
+
+        try {
+          const response = await fetch(backendBase + '/api/verify-cashfree-payment?order_id=' + encodeURIComponent(orderId), {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+
+          const data = await response.json().catch(function() { return {}; });
+          if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Payment verification failed.');
+          }
+
+          setReceiptFromOrder(data.order || {}, data);
+          setBanner('Payment confirmed. Your order has been marked as paid.', false);
+          elements.heroCopy.textContent = 'Your payment has been verified. The order is now secured, updated in Supabase, and ready for premium fulfillment.';
+          elements.statusCopy.textContent = 'Receipt and order details have been pulled from your backend and updated live. Keep this page for your reference if needed.';
+        } catch (error) {
+          setBanner('Payment verification could not be completed right now.', true);
+          elements.heroCopy.textContent = 'Your order reference was received, but the backend verification step needs attention before the payment can be marked as paid.';
+          elements.statusCopy.textContent = error.message || 'Unknown backend error.';
+          elements.paymentStatus.textContent = 'PENDING';
+          if (orderId) {
+            elements.orderRef.textContent = orderId;
+          }
+        }
+      }
+
+      setReceiptFromOrder({ cf_order_id: orderId, payment_status: 'pending' });
+      verifyPayment();
+    })();
+  </script>
+</body>
+</html>

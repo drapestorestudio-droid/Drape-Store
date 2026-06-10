@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRAPE — Wear The Silence</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+<style>
+/* ── RESET & TOKENS ── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --black:#080808;--deep:#040404;--white:#f0ede6;
+  --gray:#0f0f0f;--mid:#141414;--card:#111;
+  --neon:#c8ff00;
+  /* restored original theme tokens */
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --muted:rgba(240,237,230,0.38);--mid-text:rgba(240,237,230,0.6);
+  --glass:rgba(255,255,255,0.025);
+}
+html{scroll-behavior:smooth}
+body{background:var(--black);color:var(--white);font-family:'Space Grotesk',sans-serif;overflow-x:hidden}
+::selection{background:var(--neon);color:#000}
+::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:#222}
+
+/* ── NOISE TEXTURE ── */
+body::before{content:'';position:fixed;inset:0;z-index:1000;pointer-events:none;opacity:0.018;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ── LOADING ── */
+.loading-overlay{position:fixed;inset:0;background:rgba(4,4,4,0.96);backdrop-filter:blur(18px);z-index:9000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.loading-overlay.active{display:flex}
+.spinner{width:36px;height:36px;border:1.5px solid rgba(200,255,0,0.1);border-top-color:var(--neon);border-radius:50%;animation:spin 0.75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:10px;letter-spacing:5px;text-transform:uppercase;color:var(--muted)}
+
+/* ── SUCCESS MODAL ── */
+.success-modal{position:fixed;inset:0;z-index:8000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px)}
+.success-modal.active{display:flex}
+.success-content{background:var(--gray);border:0.5px solid var(--border2);padding:52px 56px;text-align:center;max-width:460px;width:90%;animation:popIn 0.4s cubic-bezier(0.16,1,0.3,1)}
+@keyframes popIn{from{opacity:0;transform:scale(0.9) translateY(16px)}to{opacity:1;transform:none}}
+.success-icon{width:54px;height:54px;border:1.5px solid var(--neon);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--neon);margin:0 auto 22px}
+.success-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;margin-bottom:12px}
+.success-desc{font-size:13px;color:var(--muted);line-height:1.9;margin-bottom:30px}
+.success-btn{background:var(--neon);color:#000;border:none;padding:14px 40px;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;font-weight:700;cursor:pointer;transition:all .25s}
+.success-btn:hover{background:#d4f000;transform:translateY(-2px)}
+
+/* ── FINAL SALE BANNER ── */
+.final-sale-banner{background:rgba(200,255,0,0.06);border:0.5px solid rgba(200,255,0,0.2);padding:10px 18px;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--neon);text-align:center;margin-bottom:20px}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:500;padding:0 56px;height:68px;display:flex;align-items:center;justify-content:space-between;background:rgba(8,8,8,0.92);backdrop-filter:blur(22px);border-bottom:0.5px solid var(--border)}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:10px;cursor:pointer;user-select:none;flex-shrink:0;transition:letter-spacing .35s ease}
+.logo:hover{letter-spacing:13px}
+.nav-links{display:flex;gap:32px;align-items:center}
+.nav-links a{color:var(--muted);font-size:10px;letter-spacing:4px;text-transform:uppercase;cursor:pointer;position:relative;padding-bottom:2px;transition:color .25s;text-decoration:none}
+.nav-links a::after{content:'';position:absolute;bottom:0;left:0;width:0;height:0.5px;background:var(--neon);transition:width .35s cubic-bezier(0.16,1,0.3,1)}
+.nav-links a:hover,.nav-links a.active{color:var(--white)}
+.nav-links a:hover::after,.nav-links a.active::after{width:100%}
+.bag-btn{background:transparent;color:var(--white);border:0.5px solid var(--border2);padding:9px 22px;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;cursor:pointer;transition:all .25s;position:relative;flex-shrink:0}
+.bag-btn:hover{background:var(--white);color:#000;border-color:var(--white)}
+.bag-count{position:absolute;top:-8px;right:-8px;background:var(--neon);color:#000;width:19px;height:19px;border-radius:50%;font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center}
+
+/* ── HAMBURGER MENU (mobile) ── */
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:6px;background:transparent;border:none;z-index:600}
+.hamburger span{display:block;width:22px;height:1.5px;background:var(--white);transition:all .3s cubic-bezier(0.16,1,0.3,1);transform-origin:center}
+.hamburger.open span:nth-child(1){transform:translateY(6.5px) rotate(45deg)}
+.hamburger.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+.hamburger.open span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg)}
+
+/* Mobile drawer */
+.mobile-nav-drawer{position:fixed;top:68px;left:0;right:0;background:rgba(8,8,8,0.98);backdrop-filter:blur(24px);border-bottom:0.5px solid var(--border);z-index:490;display:flex;flex-direction:column;padding:0;max-height:0;overflow:hidden;transition:max-height .45s cubic-bezier(0.16,1,0.3,1),padding .35s}
+.mobile-nav-drawer.open{max-height:320px;padding:16px 0 20px}
+.mobile-nav-drawer a{display:block;padding:14px 32px;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .2s,background .2s;text-decoration:none}
+.mobile-nav-drawer a:hover{color:var(--white);background:rgba(200,255,0,0.04)}
+.mobile-nav-drawer .mob-bag{margin:12px 24px 0;background:var(--neon);color:#000;padding:13px 20px;font-size:10px;letter-spacing:4px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;width:calc(100% - 48px)}
+
+/* ── HERO ── */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;padding:0 56px 90px;position:relative;overflow:hidden;background:var(--deep)}
+#hero-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.hero-grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.011) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.011) 1px,transparent 1px);background-size:70px 70px;z-index:0}
+.hero-glow{position:absolute;top:5%;left:28%;width:900px;height:900px;background:radial-gradient(circle,rgba(200,255,0,0.045) 0%,transparent 62%);pointer-events:none;z-index:0}
+.hero-content{position:relative;z-index:1}
+.hero-tag{font-size:10px;letter-spacing:8px;text-transform:uppercase;color:var(--neon);margin-bottom:24px;display:flex;align-items:center;gap:14px}
+.hero-tag::before{content:'';width:28px;height:0.5px;background:var(--neon)}
+.hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(80px,12vw,200px);line-height:0.85;letter-spacing:2px}
+.hero-title .ghost{-webkit-text-stroke:0.8px rgba(240,237,230,0.08);color:transparent}
+.hero-title.brand-quote{font-size:clamp(38px,6.2vw,92px);line-height:1.0;letter-spacing:4px;color:var(--white)}
+.hero-title.brand-quote .ghost{-webkit-text-stroke:1.2px rgba(240,237,230,0.75) !important;color:transparent;opacity:1 !important}
+@media (max-width: 768px){
+  .hero-title.brand-quote{font-size:clamp(28px,7vw,42px);line-height:1.1}
+  .hero-title.brand-quote .ghost{-webkit-text-stroke:0.8px rgba(240,237,230,0.75) !important}
+}
+.hero-bottom{display:flex;justify-content:space-between;align-items:flex-end;margin-top:48px;flex-wrap:wrap;gap:24px}
+.hero-desc{font-size:13px;color:var(--muted);line-height:2.1;max-width:280px;letter-spacing:0.3px;font-weight:300}
+.hero-btns{display:flex;gap:12px}
+.btn-neon{background:var(--neon);color:#000;border:none;padding:15px 38px;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;font-weight:700;cursor:pointer;transition:all .3s cubic-bezier(0.34,1.56,0.64,1)}
+.btn-neon:hover{background:#d4f000;transform:translateY(-3px);box-shadow:0 12px 36px rgba(200,255,0,0.2)}
+.btn-outline{background:transparent;color:var(--white);border:0.5px solid rgba(255,255,255,0.16);padding:15px 38px;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;cursor:pointer;transition:all .25s}
+.btn-outline:hover{border-color:rgba(255,255,255,0.45)}
+
+/* ── MARQUEE ── */
+.marquee-wrap{overflow:hidden;background:#050505;border-top:0.5px solid var(--border);border-bottom:0.5px solid var(--border);padding:12px 0}
+.marquee-track{display:flex;white-space:nowrap;animation:mq 28s linear infinite}
+.mq-item{font-size:10px;letter-spacing:6px;text-transform:uppercase;color:rgba(255,255,255,0.14);padding:0 28px}
+.mq-dot{color:var(--neon);opacity:0.35}
+@keyframes mq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ── COLLECTION SECTION ── */
+.collection-section{padding:100px 56px}
+.sec-hd{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:56px}
+.sec-eyebrow{font-size:9px;letter-spacing:6px;text-transform:uppercase;color:var(--neon);opacity:0.75;margin-bottom:10px}
+.sec-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(38px,4.5vw,58px);letter-spacing:4px;line-height:1}
+
+/* ── PRODUCT GRID — compact editorial scale ── */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:2px}
+
+/* card stagger */
+@keyframes cardUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.pgrid .pcard{opacity:0;animation:cardUp .5s cubic-bezier(0.16,1,0.3,1) forwards}
+.pgrid .pcard:nth-child(1){animation-delay:.04s}.pgrid .pcard:nth-child(2){animation-delay:.08s}
+.pgrid .pcard:nth-child(3){animation-delay:.12s}.pgrid .pcard:nth-child(4){animation-delay:.16s}
+.pgrid .pcard:nth-child(5){animation-delay:.20s}.pgrid .pcard:nth-child(6){animation-delay:.24s}
+.pgrid .pcard:nth-child(7){animation-delay:.28s}.pgrid .pcard:nth-child(8){animation-delay:.32s}
+.pgrid .pcard:nth-child(9){animation-delay:.36s}.pgrid .pcard:nth-child(10){animation-delay:.40s}
+.pgrid .pcard:nth-child(11){animation-delay:.44s}.pgrid .pcard:nth-child(12){animation-delay:.48s}
+
+.pcard{background:var(--card);position:relative;overflow:hidden;cursor:pointer;transition:transform .4s cubic-bezier(0.34,1.56,0.64,1)}
+.pcard:hover{transform:translateY(-5px)}
+.pcard:hover .pimg img{transform:scale(1.05);filter:brightness(1.02)}
+.pcard:hover .pcard-cta{opacity:1;transform:translateY(0)}
+.pcard-badge{position:absolute;top:12px;left:12px;font-size:8px;letter-spacing:3px;text-transform:uppercase;padding:4px 10px;font-weight:700;z-index:2}
+.pcard-badge.default{background:var(--neon);color:#000}
+.pcard-badge.multi{background:#fff;color:#000}
+.pcard-badge.oos{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border:0.5px solid rgba(255,255,255,0.15)}
+
+/* compact image container */
+.pimg{aspect-ratio:3/3.6;overflow:hidden;position:relative;background:#0a0a0a}
+.pimg img{width:100%;height:100%;object-fit:cover;transition:transform .65s cubic-bezier(0.25,0.8,0.25,1),filter .4s;filter:brightness(0.88)}
+
+.pinfo{padding:14px 14px 16px}
+.pname{font-size:10px;letter-spacing:2px;margin-bottom:6px;font-weight:500;color:rgba(255,255,255,0.72);text-transform:uppercase}
+.pprice-row{display:flex;align-items:center;gap:8px}
+.pprice-active{font-size:15px;font-weight:700;color:var(--neon)}
+.pprice-original{font-size:11px;color:rgba(255,255,255,0.28);text-decoration:line-through}
+
+.pcard-cta{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(4,4,4,0.95) 0%,transparent 100%);padding:18px 14px 14px;font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--neon);display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(8px);transition:opacity .32s ease,transform .32s ease}
+
+/* ── ABOUT ── */
+#about-view{display:none;animation:fadeVw .4s ease}
+.about-hero{min-height:55vh;display:flex;align-items:center;padding:148px 56px 72px;position:relative;overflow:hidden;background:var(--deep)}
+.about-hero::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(200,255,0,0.022) 0%,transparent 55%)}
+.about-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(64px,10vw,148px);line-height:0.87;letter-spacing:2px}
+.about-title span{-webkit-text-stroke:0.8px rgba(240,237,230,0.08);color:transparent}
+.about-body{display:grid;grid-template-columns:1fr 1fr;gap:72px;padding:72px 56px 100px;align-items:start}
+.about-copy{font-size:14px;color:var(--muted);line-height:2.3;font-weight:300;letter-spacing:0.3px}
+.about-copy p+p{margin-top:24px}
+.about-copy em{color:var(--neon);font-style:normal}
+.about-stats{display:flex;flex-direction:column;gap:40px}
+.stat-item{border-left:0.5px solid var(--border);padding-left:24px}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:56px;color:var(--neon);letter-spacing:2px;line-height:1}
+.stat-lbl{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.manifesto{padding:72px 56px 100px;border-top:0.5px solid var(--border);background:#060606}
+.manifesto-text{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,4.5vw,54px);letter-spacing:3px;line-height:1.35;color:rgba(255,255,255,0.5)}
+.manifesto-text em{color:var(--neon);font-style:normal}
+
+/* ── CONTACT ── */
+#contact-view{display:none;animation:fadeVw .4s ease}
+.contact-wrap{max-width:680px;padding:148px 56px 80px}
+.form-col{display:flex;flex-direction:column;gap:18px;margin-top:48px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.fg{display:flex;flex-direction:column;gap:8px}
+.fg.fw{grid-column:1/-1}
+.fg label{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.32)}
+.finput{background:var(--glass);border:0.5px solid var(--border);color:var(--white);padding:14px 18px;font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none;resize:none;transition:border-color .25s,background .25s}
+.finput:focus{border-color:rgba(200,255,0,0.32);background:rgba(200,255,0,0.015)}
+.finput::placeholder{color:rgba(255,255,255,0.16)}
+.contact-submit{background:var(--neon);color:#000;border:none;padding:16px 44px;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;font-weight:700;cursor:pointer;transition:all .3s cubic-bezier(0.34,1.56,0.64,1);display:inline-flex;align-items:center;gap:10px}
+.contact-submit:hover{background:#d4f000;transform:translateY(-2px);box-shadow:0 10px 32px rgba(200,255,0,0.16)}
+.contact-info-grid{margin-top:56px;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;padding-top:48px;border-top:0.5px solid var(--border)}
+.ci-label{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--neon);opacity:0.75;margin-bottom:9px}
+.ci-val{font-size:13px;color:var(--mid-text);letter-spacing:0.5px}
+.ci-val a{color:var(--mid-text);text-decoration:none;transition:color .2s}
+.ci-val a:hover{color:var(--neon)}
+.contact-ok{display:none;background:rgba(200,255,0,0.05);border:0.5px solid rgba(200,255,0,0.18);padding:14px 20px;font-size:11px;color:var(--neon);letter-spacing:1px;align-items:center;gap:10px;margin-top:16px}
+.contact-ok.show{display:flex}
+
+/* ── PRODUCT DETAIL ── */
+@keyframes fadeVw{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#product-view{min-height:100vh;background:var(--black);padding-top:68px;display:none;animation:fadeVw .4s ease}
+.pdv-back{display:inline-flex;align-items:center;gap:10px;background:transparent;border:none;color:var(--muted);font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;cursor:pointer;padding:28px 56px 16px;transition:color .25s}
+.pdv-back:hover{color:var(--neon)}
+.pdv-split{display:grid;grid-template-columns:1fr 1fr;align-items:start}
+
+/* left panel */
+.pdv-left{position:sticky;top:68px;padding:0 0 60px 56px;display:flex;flex-direction:column;gap:16px}
+.pdv-main-wrap{aspect-ratio:1/1.18;background:#090909;overflow:hidden;border:0.5px solid var(--border);position:relative}
+.pdv-main-wrap img{width:100%;height:100%;object-fit:cover;transition:transform .18s ease-out,opacity .25s ease;transform:translate3d(0,0,0) scale(1);transform-origin:50% 50%;will-change:transform;cursor:zoom-in}
+.pdv-thumbs{display:flex;gap:10px;flex-wrap:wrap}
+.pdv-thumb{width:68px;height:84px;object-fit:cover;border:1.5px solid transparent;cursor:pointer;opacity:0.3;transition:opacity .25s,border-color .25s}
+.pdv-thumb:hover{opacity:.7}
+.pdv-thumb.active{opacity:1;border-color:var(--neon)}
+
+/* right panel */
+.pdv-right{padding:0 56px 100px 44px;border-left:0.5px solid var(--border)}
+.pdv-cat{font-size:9px;letter-spacing:5px;text-transform:uppercase;color:var(--neon);opacity:0.8;margin-bottom:12px;margin-top:28px}
+.pdv-title{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:3px;line-height:1;margin-bottom:10px}
+.pdv-price-row{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.pdv-price-active{font-size:26px;font-weight:700;color:var(--neon)}
+.pdv-price-orig{font-size:15px;color:rgba(255,255,255,0.28);text-decoration:line-through}
+.pdv-desc{font-size:13px;color:var(--muted);line-height:2.1;margin-bottom:32px;font-weight:300;letter-spacing:0.3px}
+
+/* color swatches */
+.swatch-sec{margin-bottom:32px}
+.sub-label{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-bottom:14px}
+.swatch-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.swatch{width:36px;height:36px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .25s cubic-bezier(0.34,1.56,0.64,1);flex-shrink:0;position:relative}
+.swatch:hover{transform:scale(1.1)}
+.swatch.active::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1.5px solid var(--neon)}
+.swatch-label{font-size:11px;color:var(--muted);letter-spacing:1px;margin-left:6px}
+
+/* sizes */
+.size-row{display:flex;gap:8px;margin-bottom:32px;flex-wrap:wrap}
+.sz-btn{background:transparent;color:var(--white);border:0.5px solid rgba(255,255,255,0.1);width:52px;height:52px;font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:1px;cursor:pointer;transition:all .2s}
+.sz-btn:hover,.sz-btn.active{background:var(--white);color:#000;border-color:var(--white)}
+
+/* spec tabs */
+.spec-tabs{display:flex;gap:0;border-bottom:0.5px solid var(--border);margin-bottom:28px}
+.spec-tab{background:transparent;border:none;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);padding:11px 18px 11px 0;cursor:pointer;position:relative;transition:color .25s}
+.spec-tab::after{content:'';position:absolute;bottom:-.5px;left:0;width:0;height:1px;background:var(--neon);transition:width .3s}
+.spec-tab.active{color:var(--white)}
+.spec-tab.active::after{width:100%}
+.spec-panel{display:none;margin-bottom:28px;animation:fadeVw .3s ease}
+.spec-panel.active{display:block}
+.spec-list{list-style:none;display:flex;flex-direction:column;gap:9px}
+.spec-list li{font-size:12px;color:var(--muted);letter-spacing:.4px;display:flex;align-items:flex-start;gap:10px}
+.spec-list li::before{content:'—';color:var(--neon);opacity:0.5;flex-shrink:0}
+
+/* shipping form */
+.ship-hd{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.ship-icon{width:32px;height:32px;border:0.5px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--neon);flex-shrink:0}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fgi{display:flex;flex-direction:column;gap:7px}
+.fgi.fw{grid-column:1/-1}
+.fgi label{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.3)}
+
+/* pay button */
+.btn-pay{width:100%;background:var(--neon);color:#000;border:none;padding:18px;font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:5px;text-transform:uppercase;font-weight:700;cursor:pointer;transition:all .3s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px}
+.btn-pay:hover{background:#d4f000;transform:translateY(-2px);box-shadow:0 12px 40px rgba(200,255,0,0.2)}
+.btn-pay:disabled,.btn-oos{background:#181818;color:rgba(255,255,255,0.2);cursor:not-allowed;transform:none !important;box-shadow:none !important;border:0.5px solid rgba(255,255,255,0.08)}
+.btn-oos{width:100%;padding:18px;font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:5px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px}
+.pay-trust{margin-top:10px;text-align:center;font-size:9px;color:rgba(255,255,255,0.16);letter-spacing:2px;text-transform:uppercase}
+
+/* ── IMAGE LIGHTBOX ── */
+.lightbox{position:fixed;inset:0;z-index:9800;opacity:0;pointer-events:none;transition:opacity .28s ease}
+.lightbox.open{opacity:1;pointer-events:auto}
+.lightbox-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(22px)}
+.lightbox-shell{position:relative;z-index:1;min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 18px 36px}
+.lightbox-topbar{width:min(92vw,1180px);display:flex;justify-content:flex-end;align-items:center;margin-bottom:14px}
+.lightbox-close{background:transparent;border:none;color:rgba(240,237,230,0.8);font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:5px;text-transform:uppercase;cursor:pointer;padding:10px 0;transition:color .2s,opacity .2s}
+.lightbox-close:hover{color:var(--neon)}
+.lightbox-stage{width:min(92vw,1180px);height:min(82vh,920px);display:flex;align-items:center;justify-content:center;overflow:hidden;border:0.5px solid rgba(255,255,255,0.08);background:radial-gradient(circle at center,rgba(255,255,255,0.03),rgba(255,255,255,0.01) 32%,rgba(0,0,0,0.2) 100%);box-shadow:0 32px 120px rgba(0,0,0,0.5);border-radius:18px;cursor:grab;touch-action:none}
+.lightbox-stage:active{cursor:grabbing}
+.lightbox-image{max-width:100%;max-height:100%;object-fit:contain;opacity:0;transform:translate3d(0,0,0) scale(1);transform-origin:center center;transition:transform .15s ease-out,opacity .28s ease;will-change:transform,opacity;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.lightbox.open .lightbox-image{opacity:1}
+.lightbox-hint{margin-top:14px;font-size:9px;letter-spacing:4px;text-transform:uppercase;color:rgba(240,237,230,0.28);text-align:center}
+#pdvMainImg{--zoom-scale:1;--zoom-x:0px;--zoom-y:0px;--zoom-origin-x:50%;--zoom-origin-y:50%;transform:translate3d(var(--zoom-x),var(--zoom-y),0) scale(var(--zoom-scale));transform-origin:var(--zoom-origin-x) var(--zoom-origin-y);}
+#pdvMainImg.is-hover-zoom{--zoom-scale:1.12}
+#pdvMainImg.is-hover-zoom:hover{cursor:zoom-in}
+#pdvMainImg.is-hover-zoom.is-zooming{cursor:zoom-out}
+
+@media (max-width: 768px) {
+  .lightbox-shell{padding:20px 14px 28px}
+  .lightbox-stage{width:100%;height:70vh;border-radius:14px}
+  .lightbox-topbar{width:100%}
+}
+
+/* ── BAG DRAWER ── */
+.bag-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);backdrop-filter:blur(5px);z-index:590;opacity:0;pointer-events:none;transition:opacity .35s}
+.bag-overlay.open{opacity:1;pointer-events:all}
+.bag-drawer{position:fixed;top:0;right:0;bottom:0;width:400px;z-index:600;background:rgba(8,8,8,0.97);backdrop-filter:blur(26px);border-left:0.5px solid var(--border2);transform:translateX(100%);transition:transform .45s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column}
+.bag-drawer.open{transform:translateX(0)}
+.bag-hd{display:flex;justify-content:space-between;align-items:center;padding:28px 28px 20px;border-bottom:0.5px solid var(--border)}
+.bag-hd h3{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:5px}
+.close-bag{background:none;border:none;color:var(--white);cursor:pointer;font-size:17px;opacity:.28;transition:opacity .2s}
+.close-bag:hover{opacity:1}
+.bag-body{flex:1;overflow-y:auto;padding:16px 28px}
+.bag-empty{text-align:center;padding:64px 0;color:rgba(255,255,255,0.16);font-size:10px;letter-spacing:4px;text-transform:uppercase}
+.bag-item{display:flex;gap:14px;align-items:center;padding:16px 0;border-bottom:0.5px solid var(--border);transition:opacity .3s,transform .3s}
+.bag-item.removing{opacity:0;transform:translateX(18px)}
+.bag-item img{width:58px;height:72px;object-fit:cover;border:0.5px solid var(--border)}
+.bag-info{flex:1}
+.bag-iname{font-size:11px;letter-spacing:.5px;margin-bottom:4px;color:rgba(255,255,255,0.8);text-transform:uppercase}
+.bag-imeta{font-size:10px;color:rgba(255,255,255,0.28);letter-spacing:1px;margin-bottom:4px}
+.bag-iprice{font-size:14px;font-weight:700;color:var(--neon)}
+.bag-remove{background:none;border:none;color:rgba(255,255,255,0.22);cursor:pointer;font-size:14px;padding:3px;transition:color .2s}
+.bag-remove:hover{color:rgba(255,255,255,0.8)}
+.bag-sale-notice{background:rgba(200,255,0,0.05);border:0.5px solid rgba(200,255,0,0.15);padding:9px 14px;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--neon);margin:10px 0;text-align:center}
+.bag-ft{padding:18px 28px 32px;border-top:0.5px solid var(--border)}
+.bag-total{display:flex;justify-content:space-between;font-size:10px;margin-bottom:18px;text-transform:uppercase;letter-spacing:2px;color:var(--muted)}
+.bag-total span:last-child{font-weight:700;font-size:20px;color:var(--white)}
+.bag-chk{width:100%;background:var(--neon);color:#000;border:none;padding:16px;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:5px;text-transform:uppercase;font-weight:700;cursor:pointer;transition:background .25s}
+.bag-chk:hover{background:#d4f000}
+
+/* ── FOOTER ── */
+footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;padding:36px 56px;border-top:0.5px solid var(--border);gap:14px}
+.footer-brand{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:8px;color:rgba(255,255,255,0.28)}
+.footer-links{display:flex;gap:24px;flex-wrap:wrap}
+.footer-links a{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.2);text-decoration:none;cursor:pointer;transition:color .25s}
+.footer-links a:hover{color:var(--neon)}
+.footer-insta{display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.3);text-decoration:none;transition:color .25s}
+.footer-insta:hover{color:var(--neon)}
+.footer-legal{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding-top:22px;margin-top:18px;border-top:0.5px solid rgba(255,255,255,0.06)}
+.footer-legal-group{display:flex;flex-direction:column;gap:8px;min-width:0}
+.footer-legal-title{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--neon);opacity:0.72}
+.footer-legal-copy{font-size:11px;line-height:1.85;color:rgba(255,255,255,0.34);letter-spacing:0.2px}
+.footer-legal-copy a{color:rgba(255,255,255,0.46);text-decoration:none;border-bottom:0.5px solid rgba(255,255,255,0.14);padding-bottom:1px}
+.footer-legal-copy a:hover{color:var(--neon);border-bottom-color:var(--neon)}
+.footer-copy{font-size:10px;color:rgba(255,255,255,0.16);letter-spacing:1px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){
+  .pdv-split{grid-template-columns:1fr}
+  .pdv-left{position:relative;top:auto;padding:0 28px}
+  .pdv-right{padding:22px 28px 56px;border-left:none;border-top:0.5px solid var(--border)}
+  .about-body{grid-template-columns:1fr}
+  .contact-info-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:768px){
+  nav{padding:0 24px}
+  .nav-links,.bag-btn{display:none}
+  .hamburger{display:flex}
+  .hero,.collection-section{padding-left:24px;padding-right:24px}
+  .hero{padding-bottom:64px}
+  .collection-section{padding-top:80px}
+  .pdv-back{padding:18px 24px 12px}
+  .about-hero,.about-body,.manifesto,.contact-wrap{padding-left:24px;padding-right:24px}
+  .form-row{grid-template-columns:1fr}
+  .bag-drawer{width:100%}
+  footer{padding:28px 24px}
+  .footer-legal{grid-template-columns:1fr;gap:14px;padding-top:18px;margin-top:14px}
+  .contact-info-grid{grid-template-columns:1fr}
+}
+
+/* ── RELATED PRODUCTS ── */
+.related-section {
+  padding: 56px 56px 80px;
+  border-top: 0.5px solid var(--border);
+  background: var(--gray);
+}
+.related-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px; letter-spacing: 4px;
+  margin-bottom: 28px; color: var(--white);
+}
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 2px;
+}
+.rel-card {
+  background: var(--card);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+.rel-card:hover { transform: translateY(-4px); }
+.rel-card:hover .rel-img img { transform: scale(1.06); filter: brightness(1); }
+.rel-img {
+  aspect-ratio: 1/1.2;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+.rel-img img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 0.55s cubic-bezier(0.25,0.8,0.25,1), filter 0.35s;
+  filter: brightness(0.85);
+}
+.rel-info { padding: 10px 12px 12px; }
+.rel-name {
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(255,255,255,0.65); margin-bottom: 5px; font-weight: 500;
+}
+.rel-price-row { display: flex; align-items: center; gap: 6px; }
+.rel-price-active { font-size: 13px; font-weight: 700; color: var(--neon); }
+.rel-price-orig { font-size: 10px; color: rgba(255,255,255,0.22); text-decoration: line-through; }
+.rel-oos-tag { font-size: 9px; color: rgba(255,255,255,0.25); letter-spacing: 2px; text-transform: uppercase; }
+@media(max-width: 768px) {
+  .related-section { padding: 44px 24px 60px; }
+  .related-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Loading ── -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Processing Secure Payment</div>
+</div>
+
+<!-- ── Success ── -->
+<div class="success-modal" id="successModal">
+  <div class="success-content">
+    <div class="success-icon">✓</div>
+    <div class="success-title">Order Confirmed</div>
+    <div class="success-desc" id="successDesc">Payment verified. Your order is being prepared. Check your email for confirmation.</div>
+    <button class="success-btn" onclick="closeSuccess()">Continue Shopping</button>
+  </div>
+</div>
+
+<!-- ═══ NAV ═══ -->
+<nav id="mainNav">
+  <div class="logo" onclick="showView('home')">DRAPE</div>
+  <div class="nav-links" id="desktopLinks">
+    <a id="nl-collection" onclick="showView('home')">Collection</a>
+    <a id="nl-about"      onclick="showView('about')">About Us</a>
+    <a id="nl-contact"    onclick="showView('contact')">Contact</a>
+    <a href="https://instagram.com/drapestore.co" target="_blank" rel="noopener">Instagram</a>
+  </div>
+  <button class="bag-btn" id="navBagBtn" onclick="toggleBag(true)">
+    Bag <span class="bag-count" id="bagCount">0</span>
+  </button>
+  <button class="hamburger" id="hamburger" onclick="toggleMobileMenu()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile drawer -->
+<div class="mobile-nav-drawer" id="mobileDrawer">
+  <a onclick="showView('home');toggleMobileMenu()">Collection</a>
+  <a onclick="showView('about');toggleMobileMenu()">About Us</a>
+  <a onclick="showView('contact');toggleMobileMenu()">Contact</a>
+  <a href="https://instagram.com/drapestore.co" target="_blank" rel="noopener" onclick="toggleMobileMenu()">Instagram ↗</a>
+  <button class="mob-bag" onclick="toggleBag(true);toggleMobileMenu()">
+    Bag <span id="mobBagCount"></span>
+  </button>
+</div>
+
+<!-- ═══ HOME VIEW ═══ -->
+<div id="home-view">
+  <div class="hero">
+    <canvas id="hero-canvas"></canvas>
+    <div class="hero-grid-bg"></div>
+    <div class="hero-glow"></div>
+    <div class="hero-content">
+      <div class="hero-tag">Wear The Silence</div>
+      <div class="hero-title brand-quote">NOT FOR EVERYONE<br><span class="ghost">BUILT FOR LEGENDS</span></div>
+      <div class="hero-bottom">
+        <div class="hero-desc">Premium heavyweight drops. Engineered for structural minimalism. Built for the few who understand silence.</div>
+        <div class="hero-btns">
+          <button class="btn-neon" onclick="document.getElementById('coll-anchor').scrollIntoView({behavior:'smooth'})">Shop Now</button>
+          <button class="btn-outline" onclick="showView('about')">About Us</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="marquee-wrap">
+    <div class="marquee-track">
+      <span class="mq-item">HEAVYWEIGHT DROPS <span class="mq-dot">✦</span></span>
+      <span class="mq-item">WEAR THE SILENCE <span class="mq-dot">✦</span></span>
+      <span class="mq-item">DRAPE SS26 <span class="mq-dot">✦</span></span>
+      <span class="mq-item">PREMIUM OVERSIZED SILHOUETTES <span class="mq-dot">✦</span></span>
+      <span class="mq-item">LIMITED ARCHIVES ONLY <span class="mq-dot">✦</span></span>
+      <span class="mq-item">SHADOW COLLECTION <span class="mq-dot">✦</span></span>
+      <span class="mq-item">HEAVYWEIGHT DROPS <span class="mq-dot">✦</span></span>
+      <span class="mq-item">WEAR THE SILENCE <span class="mq-dot">✦</span></span>
+      <span class="mq-item">DRAPE SS26 <span class="mq-dot">✦</span></span>
+      <span class="mq-item">PREMIUM OVERSIZED SILHOUETTES <span class="mq-dot">✦</span></span>
+      <span class="mq-item">LIMITED ARCHIVES ONLY <span class="mq-dot">✦</span></span>
+      <span class="mq-item">SHADOW COLLECTION <span class="mq-dot">✦</span></span>
+    </div>
+  </div>
+
+  <div class="collection-section" id="coll-anchor">
+    <div class="sec-hd">
+      <div>
+        <div class="sec-eyebrow">Latest Drops — SS26</div>
+        <div class="sec-title">THE COLLECTION</div>
+      </div>
+    </div>
+    <div class="pgrid" id="products-grid"></div>
+  </div>
+
+  <footer>
+    <div class="footer-brand">DRAPE</div>
+    <div class="footer-links">
+      <a onclick="showView('about')">About Us</a>
+      <a onclick="showView('contact')">Contact</a>
+      <a href="https://instagram.com/drapestore.co" target="_blank" rel="noopener" class="footer-insta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+        @drapestore.co
+      </a>
+    </div>
+    <div class="footer-copy">&copy; 2026 DRAPE — Wear The Silence</div>
+    <div class="footer-legal">
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Terms &amp; Conditions</div>
+        <div class="footer-legal-copy">All transactions on drapestore.co are governed by Indian laws. By using this website, you agree to these terms and our checkout conditions.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Privacy Policy</div>
+        <div class="footer-legal-copy">Customer details are collected only to fulfill and service your order. Payment transactions are securely processed by Cashfree; card or bank data is not stored on our servers.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Return &amp; Cancellation Policy</div>
+        <div class="footer-legal-copy">Due to the custom nature of premium drapes, all sales are final with no return, no exchange, and no cancellation. A free replacement is offered only for verified manufacturing defects or transit damage when an unedited unboxing video is shared within 24 hours of delivery.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Contact Us</div>
+        <div class="footer-legal-copy">Support email: <a href="mailto:support@drapestore.co">support@drapestore.co</a><br>Operating hours: 10 AM - 6 PM, Mon-Sat</div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ═══ ABOUT VIEW ═══ -->
+<div id="about-view">
+  <div class="about-hero">
+    <div>
+      <div class="sec-eyebrow">The Brand</div>
+      <div class="about-title">WE DON'T<br>MAKE <span>NOISE</span></div>
+    </div>
+  </div>
+  <div class="about-body">
+    <div class="about-copy">
+      <p>DRAPE is not merely clothing. It is an architectural statement rendered in premium fabric. Each piece is engineered with obsessive precision — structural boxy silhouettes, heavyweight construction, and deliberate restraint.</p>
+      <p>The cuts are calculated. The silhouettes are intentional. The weight is earned. We don't chase trends — we build permanence.</p>
+      <p>Born from the belief that <em>silence is the loudest statement</em>, every DRAPE drop is a deliberate act of restraint.</p>
+    </div>
+    <div class="about-stats">
+      <div class="stat-item"><div class="stat-num">11+</div><div class="stat-lbl">Distinct Silhouettes This Drop</div></div>
+      <div class="stat-item"><div class="stat-num">04</div><div class="stat-lbl">Drops Per Year — No More</div></div>
+      <div class="stat-item"><div class="stat-num">∞</div><div class="stat-lbl">Standard We Hold Ourselves To</div></div>
+    </div>
+  </div>
+  <div class="manifesto">
+    <div class="manifesto-text">"BUILT DIFFERENT.<br>MADE TO LEAD.<br><em>NOT TO FOLLOW.</em>"</div>
+  </div>
+  <footer>
+    <div class="footer-brand">DRAPE</div>
+    <div class="footer-links">
+      <a onclick="showView('home')">Collection</a>
+      <a onclick="showView('contact')">Contact</a>
+      <a href="https://instagram.com/drapestore.co" target="_blank" rel="noopener" class="footer-insta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+        @drapestore.co
+      </a>
+    </div>
+    <div class="footer-copy">&copy; 2026 DRAPE — Wear The Silence</div>
+    <div class="footer-legal">
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Terms &amp; Conditions</div>
+        <div class="footer-legal-copy">All transactions on drapestore.co are governed by Indian laws. By using this website, you agree to these terms and our checkout conditions.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Privacy Policy</div>
+        <div class="footer-legal-copy">Customer details are collected only to fulfill and service your order. Payment transactions are securely processed by Cashfree; card or bank data is not stored on our servers.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Return &amp; Cancellation Policy</div>
+        <div class="footer-legal-copy">Due to the custom nature of premium drapes, all sales are final with no return, no exchange, and no cancellation. A free replacement is offered only for verified manufacturing defects or transit damage when an unedited unboxing video is shared within 24 hours of delivery.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Contact Us</div>
+        <div class="footer-legal-copy">Support email: <a href="mailto:support@drapestore.co">support@drapestore.co</a><br>Operating hours: 10 AM - 6 PM, Mon-Sat</div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ═══ CONTACT VIEW ═══ -->
+<div id="contact-view">
+  <div class="contact-wrap">
+    <div class="sec-eyebrow">Get In Touch</div>
+    <div class="sec-title" style="margin-top:8px">REACH<br>OUT</div>
+    <div class="form-col" id="contactForm">
+      <div class="form-row">
+        <div class="fg"><label>Full Name</label><input type="text" class="finput" id="cName" placeholder="Your name"></div>
+        <div class="fg"><label>Email</label><input type="email" class="finput" id="cEmail" placeholder="your@email.com"></div>
+      </div>
+      <div class="fg fw"><label>Subject</label><input type="text" class="finput" id="cSubject" placeholder="Order query, collab, wholesale..."></div>
+      <div class="fg fw"><label>Message</label><textarea class="finput" id="cMessage" rows="5" placeholder="Tell us what's on your mind..."></textarea></div>
+      <div><button class="contact-submit" onclick="submitContact()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+        Send Message
+      </button></div>
+      <div class="contact-ok" id="contactOk"><span style="color:var(--neon)">✓</span> Message received. We'll reply within 24 hours.</div>
+    </div>
+    <div class="contact-info-grid">
+      <div><div class="ci-label">Direct Support</div><div class="ci-val"><a href="mailto:drapestorestudio@gmail.com">drapestorestudio@gmail.com</a></div></div>
+      <div><div class="ci-label">Instagram</div><div class="ci-val"><a href="https://instagram.com/drapestore.co" target="_blank" rel="noopener">@drapestore.co ↗</a></div></div>
+      <div><div class="ci-label">Sales Policy</div><div class="ci-val" style="font-size:11px;color:var(--muted);line-height:1.7">Note: All sales are final.<br>No returns or exchanges.</div></div>
+    </div>
+  </div>
+  <footer>
+    <div class="footer-brand">DRAPE</div>
+    <div class="footer-links">
+      <a onclick="showView('home')">Collection</a>
+      <a onclick="showView('about')">About Us</a>
+      <a href="https://instagram.com/drapestore.co" target="_blank" rel="noopener" class="footer-insta">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+        @drapestore.co
+      </a>
+    </div>
+    <div class="footer-copy">&copy; 2026 DRAPE — Wear The Silence</div>
+    <div class="footer-legal">
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Terms &amp; Conditions</div>
+        <div class="footer-legal-copy">All transactions on drapestore.co are governed by Indian laws. By using this website, you agree to these terms and our checkout conditions.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Privacy Policy</div>
+        <div class="footer-legal-copy">Customer details are collected only to fulfill and service your order. Payment transactions are securely processed by Cashfree; card or bank data is not stored on our servers.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Return &amp; Cancellation Policy</div>
+        <div class="footer-legal-copy">Due to the custom nature of premium drapes, all sales are final with no return, no exchange, and no cancellation. A free replacement is offered only for verified manufacturing defects or transit damage when an unedited unboxing video is shared within 24 hours of delivery.</div>
+      </div>
+      <div class="footer-legal-group">
+        <div class="footer-legal-title">Contact Us</div>
+        <div class="footer-legal-copy">Support email: <a href="mailto:support@drapestore.co">support@drapestore.co</a><br>Operating hours: 10 AM - 6 PM, Mon-Sat</div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ═══ PRODUCT DETAIL VIEW ═══ -->
+<div id="product-view">
+  <button class="pdv-back" id="pdvBackBtn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Back To Collection
+  </button>
+  <div class="pdv-split" id="pdvContent"></div>
+</div>
+
+<!-- ═══ BAG DRAWER ═══ -->
+<div class="bag-overlay" id="bagOverlay" onclick="toggleBag(false)"></div>
+<div class="bag-drawer" id="bagDrawer">
+  <div class="bag-hd"><h3>Your Bag</h3><button class="close-bag" onclick="toggleBag(false)">✕</button></div>
+  <div class="bag-body" id="bagBody"><div class="bag-empty">Your Bag Is Empty</div></div>
+  <div class="bag-ft">
+    <div class="bag-total"><span>Subtotal</span><span id="bagSubtotal">₹0</span></div>
+    <button class="bag-chk" onclick="proceedCheckout()">Proceed To Checkout</button>
+  </div>
+</div>
+
+<!-- ═══ IMAGE LIGHTBOX ═══ -->
+<div class="lightbox" id="imageLightbox" aria-hidden="true">
+  <div class="lightbox-backdrop" data-lightbox-close></div>
+  <div class="lightbox-shell" role="dialog" aria-modal="true" aria-label="Product image preview">
+    <div class="lightbox-topbar">
+      <button class="lightbox-close" type="button" data-lightbox-close>Close</button>
+    </div>
+    <div class="lightbox-stage" id="lightboxStage">
+      <img class="lightbox-image" id="lightboxImage" alt="Product preview">
+    </div>
+    <div class="lightbox-hint">Scroll to zoom · Drag to pan · Pinch to zoom</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// PRODUCT DATABASE — v4.1
+// Excluded: p8 (Acid Logo Tee — Light) per client directive
+// Added:    p11 (Grey Tee — 2 color variants), p12 (new product)
+// Trackpant p9 = OUT OF STOCK (visual archive only)
+// ══════════════════════════════════════════════════════════════════
+var products = [
+  {
+    id: 'p1', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'DRAPE BUTTERFLY TEE',
+    badge: 'Signature', badgeType: 'default', outOfStock: false,
+    desc: 'Neon electric butterfly graphic with holographic circuit detailing. Premium luxury boxy heavyweight silhouette with minimal design philosophy.',
+    specs: { material: ['Luxury boxy oversized heavyweight silhouette', 'Structural drop-shoulder architecture', 'Holographic butterfly chest graphic', 'Ribbed premium crew collar'], care: ['Cold gentle machine wash only', 'Do not tumble dry', 'Iron on reverse at low heat', 'Do not bleach'] },
+    images: ['assets/products/p1_front.png', 'assets/products/p1_back.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p13', type: 'tshirt', category: 'premium', price: 899, originalPrice: 999,
+    name: 'DRAPE SPECIAL ARJAN DHILLON TEE',
+    badge: 'Premium', badgeType: 'default', outOfStock: false,
+    desc: 'Premium heavyweight silhouette with a refined linear graphic and elevated finish. Designed for premium archival streetwear appeal.',
+    specs: { material: ['Premium heavyweight cotton blend', 'Fine linear graphic print', 'Boxy oversized fit', 'Reinforced ribbed neckline'], care: ['Cold wash gentle cycle', 'Do not tumble dry', 'Iron on reverse with low heat', 'No bleach'] },
+    images: ['assets/products/p13_back.jpeg', 'assets/products/p13_front.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p14', type: 'tshirt', category: 'premium', price: 899, originalPrice: 999,
+    name: 'DRAPE SPECIAL MAHARAJA RANJIT SINGH TEE',
+    badge: 'Premium', badgeType: 'default', outOfStock: false,
+    desc: 'Premium heavyweight canvas with tonal shadow logo print for a minimalist yet bold statement. Crafted for elevated daily wear.',
+    specs: { material: ['Premium heavyweight cotton', 'Tonal shadow logo print', 'Structured boxy fit', 'Ribbed collar and cuffs'], care: ['Cold machine wash', 'Dry flat in shade', 'Iron inside out', 'No bleach'] },
+    images: ['assets/products/p14_back.png', 'assets/products/p14_front.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p15', type: 'tshirt', category: 'premium', price: 899, originalPrice: 999,
+    name: 'DRAPE SPECIAL MAHARAJA DULEEP SINGH TEE',
+    badge: 'Premium', badgeType: 'default', outOfStock: false,
+    desc: 'Iconic premium heavyweight Drape graphic with a subtle tonal finish. Perfect for deluxe layering and premium styling.',
+    specs: { material: ['Premium heavyweight construction', 'Iconic minimal graphic design', 'Relaxed boxy silhouette', 'Reinforced collar stitching'], care: ['Cold wash only', 'Do not tumble dry', 'Iron on reverse', 'No bleach'] },
+    images: ['assets/products/p15_back.png', 'assets/products/p15_front.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p9', type: 'trackpant', price: 999, originalPrice: null,
+    name: 'DRAPE ARCHIVE ESSENTIAL TRACKPANTS',
+    badge: 'Out Of Stock', badgeType: 'oos', outOfStock: true,
+    desc: 'Luxury heavyweight premium fleece trackpant. Wide-leg relaxed authority silhouette with minimal design and tonal Drape branding. Visual archive only.',
+    specs: { material: ['Premium heavyweight fleece construction', 'Wide-leg relaxed authority silhouette', 'Elasticated drawstring waistband', 'Tonal Drape logo at hip'], care: ['Cold wash gentle cycle', 'Do not tumble dry', 'Iron on low heat reverse', 'No bleach'] },
+    images: ['assets/products/p9_front.png', 'assets/products/p9_back.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p3', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'GHOST RACER TEE',
+    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
+    desc: 'Built Different. Made to Lead. Not to Follow. Purple lightning storm JDM racer graphic on a luxury heavyweight silhouette.',
+    specs: { material: ['Luxury heavyweight oversized build', 'Boxy dropped-shoulder silhouette', 'Purple storm JDM graphic print', 'Japanese katakana accent branding'], care: ['Cold machine wash', 'Do not tumble dry', 'Press on reverse', 'No bleach'] },
+    images: ['assets/products/p3_front.png', 'assets/products/p3_back.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p12', type: 'trackpant', price: 999, originalPrice: null,
+    name: 'DRAPE CORE ARCHIVE SWEATPANTS',
+    badge: 'Out Of Stock', badgeType: 'oos', outOfStock: true,
+    desc: 'Clean minimal Drape wordmark on a premium heavyweight sweatpant construction. Wide-leg architectural silhouette — the essential bottom to complete the archive.',
+    specs: { material: ['Premium heavyweight sweatpant construction', 'Clean minimal Drape wordmark print', 'Wide-leg relaxed authority silhouette', 'Elasticated drawstring waistband', 'Drop-crotch structural cut'], care: ['Cold wash gentle cycle', 'Lay flat to dry', 'Iron on low heat reverse only', 'No bleach'] },
+    images: ['assets/products/p12_front.png', 'assets/products/p12_back.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p11', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'DRAPE DELTA GEOMETRIC TEE',
+    badge: 'Essential', badgeType: 'default', outOfStock: false,
+    desc: 'Clean geometric minimal graphic on a premium acid-washed grey canvas. Luxury boxy oversized heavyweight silhouette — structural restraint at its purest.',
+    specs: { material: ['Heavyweight acid-washed canvas construction', 'Luxury boxy oversized silhouette', 'Geometric minimal chest graphic', 'Drop-shoulder seam architecture'], care: ['Cold wash gentle cycle only', 'Dry flat in shade', 'Cool iron on reverse', 'No bleach — preserves acid wash character'] },
+    images: ['assets/products/p11_c1_front.png', 'assets/products/p11_back.png'],
+    colors: null
+  },
+  {
+    id: 'p2', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'BLIND JUSTICE TEE',
+    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
+    desc: 'Brushwork Drape logo over a classical statue — blind justice redefined. Graffiti purple drip detailing on a luxury heavyweight silhouette.',
+    specs: { material: ['Premium luxury boxy heavyweight build', 'Brushwork graphic print', 'Classical statue graffiti drip motif', 'Drop-shoulder seam placement'], care: ['Cold wash only', 'Lay flat to dry', 'Iron reverse at low heat', 'No bleach or dry clean'] },
+    images: ['assets/products/p2_front.png', 'assets/products/p2_back.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p10', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'SAINTS FEST CHAMPIONSHIP TEE',
+    badge: '5 Colors', badgeType: 'multi', outOfStock: false,
+    desc: 'Saints Fest Championship race graphic on a premium acid-washed heritage base. Luxury boxy heavyweight silhouette available in 5 exclusive acid-washed colorways.',
+    specs: { material: ['Luxury heavyweight acid-washed canvas', 'Heritage retro race graphic print', 'Oversized boxy structural silhouette', 'Drop-shoulder seam architecture', '5 exclusive acid-washed colorways'], care: ['Cold wash gentle cycle only', 'Dry flat in shade', 'Cool iron on reverse only', 'No bleach — preserves acid wash'] },
+    colors: [
+      { name: 'Forest Green',     hex: '#2d4a36', images: ['assets/products/p10_c1.png',  'assets/products/p10_c1.png']  },
+      { name: 'Washed Charcoal',  hex: '#3a3a3a', images: ['assets/products/p10_c2.jpeg', 'assets/products/p10_c2.jpeg'] },
+      { name: 'Vintage Burgundy', hex: '#5c2232', images: ['assets/products/p10_c3.jpeg', 'assets/products/p10_c3.jpeg'] },
+      { name: 'Tobacco Brown',    hex: '#5a3520', images: ['assets/products/p10_c4.jpeg', 'assets/products/p10_c4.jpeg'] },
+      { name: 'Acid Black',       hex: '#1a1a1a', images: ['assets/products/p10_c5.jpeg', 'assets/products/p10_c5.jpeg'] }
+    ],
+    images: ['assets/products/p10_c1.png','assets/products/p10_c2.jpeg','assets/products/p10_c3.jpeg','assets/products/p10_c4.jpeg','assets/products/p10_c5.jpeg']
+  },
+  {
+    id: 'p7', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'DRAPE ACID LOGO TEE',
+    badge: 'Essential', badgeType: 'default', outOfStock: false,
+    desc: 'The essential. Acid-washed dark charcoal heavyweight canvas with tonal Drape lightning logo at chest. Luxury boxy heavyweight silhouette.',
+    specs: { material: ['Heavyweight acid-washed canvas build', 'Tonal chest logo print', 'Dark charcoal structural base', 'Dropped shoulder seam', 'Ribbed crew collar'], care: ['Cold wash gentle cycle', 'Dry flat in shade', 'Cool iron on reverse', 'No bleach'] },
+    images: ['assets/products/p7_front.png', 'assets/products/p7_back.png'],
+    colors: null
+  },
+  {
+    id: 'p4', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'PEAK ASCENT TEE',
+    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
+    desc: 'Rise Above. Stay True. Barbed-wire logo over a monochrome mountain summit graphic. Luxury boxy heavyweight silhouette with minimal design intent.',
+    specs: { material: ['Luxury heavyweight structural build', 'Barbed wire graphic motif', 'Mountain summit monochrome print', 'Oversized boxy drop-shoulder fit'], care: ['Cold wash gentle cycle', 'No tumble dry', 'Iron on reverse', 'No bleach'] },
+    images: ['assets/products/p4_front.png', 'assets/products/p4_back.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p5', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'F1 STORM TEE',
+    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
+    desc: 'Not Luck. Not Hype. Just Drape. F1 formula car emerging from a lightning storm graphic. Luxury boxy heavyweight silhouette.',
+    specs: { material: ['Luxury heavyweight boxy silhouette', 'Chrome F1 lightning storm graphic', 'Dual-print front detail', 'Structural oversized cut'], care: ['Cold wash only', 'Lay flat to dry', 'Press on reverse', 'No bleach'] },
+    images: ['assets/products/p5_front.png', 'assets/products/p5_back.jpeg'],
+    colors: null
+  },
+  {
+    id: 'p6', type: 'tshirt', price: 799, originalPrice: 999,
+    name: 'WORLDWIDE CHROME TEE',
+    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
+    desc: 'Rooted In Vision. Driven By Purpose. Chrome 3D Drape wordmark over a globe wireframe. Luxury heavyweight silhouette with minimal design.',
+    specs: { material: ['Luxury heavyweight structural build', 'Chrome 3D metallic wordmark print', 'Globe wireframe graphic motif', 'Signature drop-shoulder silhouette'], care: ['Cold gentle wash', 'No tumble dry', 'Iron reverse low heat', 'No bleach'] },
+    images: ['assets/products/p6_front.png', 'assets/products/p6_back.jpeg'],
+    colors: null
+  }
+];
+
+// Ensure every product exposes a sizes array (adds XXL where missing)
+products.forEach(function(p) {
+  if (!p.sizes) p.sizes = ['S','M','L','XL','XXL'];
+});
+
+// ══════════════════════════════════════════════════════════════════
+// APPLICATION STATE
+// ══════════════════════════════════════════════════════════════════
+var bag             = [];
+var activeView      = 'home';
+var prevView        = 'home';
+var currentProduct  = null;
+var selectedSize    = 'M';
+var selectedColor   = null;
+var mobileMenuOpen  = false;
+var AVAILABLE_SIZES = ['S','M','L','XL','XXL'];
+
+// Supabase + Cashfree initialization
+const SUPABASE_URL = 'https://prugmnpdxswppapxnecv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydWdtbnBkeHN3cHBhcHhuZWN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMzA4MzUsImV4cCI6MjA5NTgwNjgzNX0.UbiDLmm4RsZzdeNWYBQxdK2n8A4IoPXK3vqF9uJzEUw';
+const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let cashfree;
+function initCashfree() {
+  if (typeof Cashfree !== 'undefined') {
+    cashfree = Cashfree({ mode: "production" });
+  } else {
+    console.error('Cashfree SDK script failed to load from CDN.');
+  }
+}
+document.addEventListener('DOMContentLoaded', initCashfree);
+var lightboxState = {
+  open: false,
+  scale: 1,
+  translateX: 0,
+  translateY: 0,
+  originX: 50,
+  originY: 50,
+  dragging: false,
+  pointerStartX: 0,
+  pointerStartY: 0,
+  startTranslateX: 0,
+  startTranslateY: 0,
+  activePointers: new Map(),
+  pinchStartDistance: 0,
+  pinchStartScale: 1,
+  pinchStartOriginX: 50,
+  pinchStartOriginY: 50,
+};
+
+// ══════════════════════════════════════════════════════════════════
+// VIEW ROUTER
+// ══════════════════════════════════════════════════════════════════
+function showView(view) {
+  ['home-view','about-view','contact-view','product-view'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  ['nl-collection','nl-about','nl-contact'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+
+  if (view === 'home') {
+    document.getElementById('home-view').style.display = 'block';
+    document.getElementById('nl-collection').classList.add('active');
+  } else if (view === 'about') {
+    document.getElementById('about-view').style.display = 'block';
+    document.getElementById('nl-about').classList.add('active');
+  } else if (view === 'contact') {
+    document.getElementById('contact-view').style.display = 'block';
+    document.getElementById('nl-contact').classList.add('active');
+  }
+
+  activeView = view;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MOBILE HAMBURGER MENU
+// ══════════════════════════════════════════════════════════════════
+function toggleMobileMenu() {
+  mobileMenuOpen = !mobileMenuOpen;
+  document.getElementById('hamburger').classList.toggle('open', mobileMenuOpen);
+  document.getElementById('mobileDrawer').classList.toggle('open', mobileMenuOpen);
+}
+
+// Close menu on outside click
+document.addEventListener('click', function(e) {
+  if (mobileMenuOpen) {
+    var nav    = document.getElementById('mainNav');
+    var drawer = document.getElementById('mobileDrawer');
+    if (!nav.contains(e.target) && !drawer.contains(e.target)) {
+      mobileMenuOpen = false;
+      document.getElementById('hamburger').classList.remove('open');
+      document.getElementById('mobileDrawer').classList.remove('open');
+    }
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════
+// PRODUCT GRID RENDERER
+// ══════════════════════════════════════════════════════════════════
+function initProducts() {
+  var grid = document.getElementById('products-grid');
+  grid.innerHTML = products.map(function(p) {
+    var coverImg = p.colors ? p.colors[0].images[0] : p.images[0];
+    var badgeCls = 'pcard-badge ' + (p.badgeType || 'default');
+    var priceHTML = '';
+    if (p.outOfStock) {
+      priceHTML = '<div class="pprice-row"><span class="pprice-active" style="color:rgba(255,255,255,0.25);font-size:11px;letter-spacing:2px">Out Of Stock</span></div>';
+    } else if (p.originalPrice && p.originalPrice !== p.price) {
+      priceHTML = '<div class="pprice-row"><span class="pprice-active">&#8377;' + p.price.toLocaleString('en-IN') + '</span><span class="pprice-original">&#8377;' + p.originalPrice.toLocaleString('en-IN') + '</span></div>';
+    } else {
+      // originalPrice is null = flat price (trackpants at ₹999, no slash)
+      priceHTML = '<div class="pprice-row"><span class="pprice-active">&#8377;' + p.price.toLocaleString('en-IN') + '</span></div>';
+    }
+    return (
+      '<div class="pcard" onclick="openDetail(\'' + p.id + '\')">' +
+        (p.badge ? '<div class="' + badgeCls + '">' + p.badge + '</div>' : '') +
+        '<div class="pimg"><img src="' + coverImg + '" alt="' + p.name + '" loading="lazy"></div>' +
+        '<div class="pinfo"><div class="pname">' + p.name + '</div>' + priceHTML + '</div>' +
+        '<div class="pcard-cta">' +
+          '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
+          (p.outOfStock ? 'View Archive' : 'View &amp; Buy') +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PRODUCT DETAIL VIEW
+// ══════════════════════════════════════════════════════════════════
+function openDetail(id) {
+  currentProduct = products.find(function(p) { return p.id === id; });
+  if (!currentProduct) return;
+  selectedSize  = 'M';
+  selectedColor = currentProduct.colors ? currentProduct.colors[0].name : null;
+  prevView      = activeView;
+
+  ['home-view','about-view','contact-view'].forEach(function(v) {
+    var el = document.getElementById(v);
+    if (el) el.style.display = 'none';
+  });
+
+  var pv = document.getElementById('product-view');
+  pv.style.display = 'block';
+
+  document.getElementById('pdvBackBtn').onclick = function() {
+    pv.style.display = 'none';
+    showView(prevView === 'product' ? 'home' : prevView);
+  };
+
+  renderDetail();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderDetail() {
+  var p = currentProduct;
+  if (!p) return;
+
+  var catLabel = p.type === 'trackpant' ? 'Premium Structural Trackpants — DRAPE SS26' : 'Premium Heavyweight T-Shirts — DRAPE SS26';
+
+  // ── Price HTML ──
+  // originalPrice: null  → flat price, no strikethrough (trackpants at ₹999)
+  // outOfStock: true     → greyed Out Of Stock label (no price shown while OOS)
+  // originalPrice > price → neon active price + grey strikethrough original
+  // else                 → flat active price only
+  var priceHTML;
+  if (p.outOfStock) {
+    priceHTML = '<div class="pdv-price-row"><span class="pdv-price-active" style="color:rgba(255,255,255,0.28);font-size:18px">Out Of Stock</span></div>';
+  } else if (p.originalPrice && p.originalPrice !== p.price) {
+    priceHTML = '<div class="pdv-price-row"><span class="pdv-price-active">&#8377;' + p.price.toLocaleString('en-IN') + '</span><span class="pdv-price-orig">&#8377;' + p.originalPrice.toLocaleString('en-IN') + '</span></div>';
+  } else {
+    priceHTML = '<div class="pdv-price-row"><span class="pdv-price-active">&#8377;' + p.price.toLocaleString('en-IN') + '</span></div>';
+  }
+
+  // ── Color swatches ──
+  var swatchHTML = '';
+  if (p.colors && p.colors.length) {
+    var swatches = p.colors.map(function(c) {
+      var isBlack = c.hex === '#1a1a1a' ? 'border:2px solid rgba(255,255,255,0.18);' : '';
+      return (
+        '<div class="swatch ' + (c.name === selectedColor ? 'active' : '') + '" ' +
+          'style="background:' + c.hex + ';' + isBlack + '" ' +
+          'title="' + c.name + '" ' +
+          'onclick="selectColorVariant(\'' + c.name.replace(/'/g,"\\'") + '\',this)">' +
+        '</div>'
+      );
+    }).join('');
+    swatchHTML = (
+      '<div class="swatch-sec">' +
+        '<div class="sub-label">Colorway: <span id="swatchActiveLabel">' + selectedColor + '</span></div>' +
+        '<div class="swatch-row">' + swatches + '</div>' +
+      '</div>'
+    );
+  }
+
+  // ── Thumbnails ──
+  var thumbHTML;
+  if (p.colors && p.colors.length) {
+    thumbHTML = p.colors.map(function(c, i) {
+      return (
+        '<img class="pdv-thumb ' + (i === 0 ? 'active' : '') + '" ' +
+          'src="' + c.images[0] + '" ' +
+          'alt="' + c.name + '" ' +
+          'onclick="switchThumb(this,\'' + c.images[0].replace(/'/g,"\\'") + '\')">'
+      );
+    }).join('');
+  } else {
+    thumbHTML = p.images.map(function(img, i) {
+      return (
+        '<img class="pdv-thumb ' + (i === 0 ? 'active' : '') + '" ' +
+          'src="' + img + '" ' +
+          'alt="View ' + (i+1) + '" ' +
+          'onclick="switchThumb(this,\'' + img.replace(/'/g,"\\'") + '\')">'
+      );
+    }).join('');
+  }
+
+  var coverImg = p.colors ? p.colors[0].images[0] : p.images[0];
+
+  // ── Size buttons (hidden for OOS) ──
+  var sizeHTML = '';
+  if (!p.outOfStock) {
+    sizeHTML = (
+      '<div class="sub-label" style="margin-bottom:14px">Select Size</div>' +
+      '<div class="size-row">' +
+      (typeof AVAILABLE_SIZES !== 'undefined' ? AVAILABLE_SIZES : ['S','M','L','XL','XXL']).map(function(sz) {
+        return (
+          '<button class="sz-btn ' + (sz === 'M' ? 'active' : '') + '" ' +
+            'onclick="selectSz(this,\'' + sz + '\')">' + sz +
+          '</button>'
+        );
+      }).join('') +
+      '</div>'
+    );
+  }
+
+  // ── Spec lists ──
+  var matList  = p.specs.material.map(function(s) { return '<li>' + s + '</li>'; }).join('');
+  var careList = p.specs.care.map(function(s)     { return '<li>' + s + '</li>'; }).join('');
+
+  // ── CTA ──
+  var ctaHTML;
+  if (p.outOfStock) {
+    ctaHTML = '<div class="btn-oos">Out Of Stock — Visual Archive</div>';
+  } else {
+    ctaHTML = (
+      '<button class="btn-pay" id="payBtn" onclick="initiateCheckout()">' +
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+        'Pay Securely — &#8377;' + p.price.toLocaleString('en-IN') + '.00' +
+      '</button>'
+    );
+  }
+
+  // Build related section for append after main content
+  var relatedHTML = renderRelated(p.id);
+  document.getElementById('pdvContent').innerHTML = (
+    '<div class="pdv-left">' +
+      '<div class="pdv-main-wrap"><img src="' + coverImg + '" id="pdvMainImg" alt="' + p.name + '"></div>' +
+      '<div class="pdv-thumbs">' + thumbHTML + '</div>' +
+    '</div>' +
+    '<div class="pdv-right">' +
+      '<div class="pdv-cat">' + catLabel + '</div>' +
+      '<h1 class="pdv-title">' + p.name + '</h1>' +
+      priceHTML +
+      '<p class="pdv-desc">' + p.desc + '</p>' +
+      swatchHTML +
+      '<div class="spec-tabs">' +
+        '<button class="spec-tab active" onclick="switchTab(this,\'tab-mat\')">Material</button>' +
+        '<button class="spec-tab" onclick="switchTab(this,\'tab-care\')">Care Guide</button>' +
+        '<button class="spec-tab" onclick="switchTab(this,\'tab-ship\')">Shipping</button>' +
+      '</div>' +
+      '<div class="spec-panel active" id="tab-mat"><ul class="spec-list">' + matList + '</ul></div>' +
+      '<div class="spec-panel" id="tab-care"><ul class="spec-list">' + careList + '</ul></div>' +
+      '<div class="spec-panel" id="tab-ship"><ul class="spec-list">' +
+        '<li>Standard delivery: 5–7 business days across India</li>' +
+        '<li>Express delivery: 2–3 business days available at checkout</li>' +
+        '<li>All orders dispatched with tracking via premium couriers</li>' +
+        '<li>Shipped from our facility within 24–48 hrs of payment</li>' +
+      '</ul></div>' +
+      sizeHTML +
+      '<div class="ship-form-wrap">' +
+        '<div class="ship-hd">' +
+          '<div class="ship-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>' +
+          '<div class="sub-label" style="margin-bottom:0">Shipping &amp; Contact Details</div>' +
+        '</div>' +
+        '<div class="form-grid">' +
+          '<div class="fgi"><label>Full Name</label><input type="text" class="finput" id="sName" placeholder="Your full name" autocomplete="name"></div>' +
+          '<div class="fgi"><label>Email</label><input type="email" class="finput" id="sEmail" placeholder="your@email.com" autocomplete="email"></div>' +
+          '<div class="fgi"><label>Phone</label><input type="tel" class="finput" id="sPhone" placeholder="+91 98765 43210" autocomplete="tel"></div>' +
+          '<div class="fgi"><label>Pincode</label><input type="text" class="finput" id="sPincode" placeholder="400001" maxlength="6" autocomplete="postal-code"></div>' +
+          '<div class="fgi fw"><label>Complete Delivery Address</label><textarea class="finput" id="sAddress" rows="3" placeholder="Flat/House No., Street, Area, City, State"></textarea></div>' +
+        '</div>' +
+      '</div>' +
+      ctaHTML +
+      '<div class="pay-trust">Secured by Cashfree &middot; UPI &middot; Cards &middot; NetBanking &middot; EMI</div>' +
+    '</div>'
+  );
+
+  // Inject "You May Also Like" related products below the detail panel
+  var relWrap = document.createElement('div');
+  relWrap.innerHTML = relatedHTML;
+  document.getElementById('product-view').appendChild(relWrap.firstChild);
+
+  initDetailImageHoverZoom();
+}
+
+function initDetailImageHoverZoom() {
+  var image = document.getElementById('pdvMainImg');
+  var wrap = document.querySelector('.pdv-main-wrap');
+  if (!image || !wrap || image.dataset.hoverZoomBound === '1') return;
+  if (!window.matchMedia || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+  image.dataset.hoverZoomBound = '1';
+  image.classList.add('is-hover-zoom');
+
+  function applyZoom(e) {
+    var rect = wrap.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    var x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    var y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+    var shiftX = ((0.5 - x) * 18).toFixed(2) + 'px';
+    var shiftY = ((0.5 - y) * 18).toFixed(2) + 'px';
+
+    image.style.setProperty('--zoom-scale', '1.12');
+    image.style.setProperty('--zoom-origin-x', (x * 100).toFixed(2) + '%');
+    image.style.setProperty('--zoom-origin-y', (y * 100).toFixed(2) + '%');
+    image.style.setProperty('--zoom-x', shiftX);
+    image.style.setProperty('--zoom-y', shiftY);
+  }
+
+  function resetZoom() {
+    image.classList.remove('is-zooming');
+    image.style.setProperty('--zoom-scale', '1');
+    image.style.setProperty('--zoom-origin-x', '50%');
+    image.style.setProperty('--zoom-origin-y', '50%');
+    image.style.setProperty('--zoom-x', '0px');
+    image.style.setProperty('--zoom-y', '0px');
+  }
+
+  image.addEventListener('mouseenter', function(e) {
+    image.classList.add('is-zooming');
+    applyZoom(e);
+  });
+
+  image.addEventListener('mousemove', function(e) {
+    if (image.classList.contains('is-zooming')) applyZoom(e);
+  });
+
+  image.addEventListener('mouseleave', resetZoom);
+}
+
+// ── Thumbnail switcher ──
+function switchThumb(el, src) {
+  document.querySelectorAll('.pdv-thumb').forEach(function(t) { t.classList.remove('active'); });
+  el.classList.add('active');
+  var main = document.getElementById('pdvMainImg');
+  main.style.opacity = '0';
+  setTimeout(function() { main.src = src; main.style.opacity = '1'; }, 200);
+}
+
+// ── Color variant engine (p10, p11) ──
+function selectColorVariant(colorName, swatchEl) {
+  selectedColor = colorName;
+  document.querySelectorAll('.swatch').forEach(function(s) { s.classList.remove('active'); });
+  swatchEl.classList.add('active');
+  var lbl = document.getElementById('swatchActiveLabel');
+  if (lbl) lbl.textContent = colorName;
+
+  var colorObj = currentProduct.colors.find(function(c) { return c.name === colorName; });
+  if (!colorObj) return;
+
+  var main = document.getElementById('pdvMainImg');
+  main.style.opacity = '0';
+  setTimeout(function() {
+    main.src           = colorObj.images[0];
+    main.style.opacity = '1';
+  }, 200);
+
+  // Sync thumb highlights
+  document.querySelectorAll('.pdv-thumb').forEach(function(t) {
+    t.classList.toggle('active', t.getAttribute('src') === colorObj.images[0]);
+  });
+}
+
+// ── Size selection ──
+function selectSz(btn, sz) {
+  document.querySelectorAll('.sz-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  selectedSize = sz;
+}
+
+// ── Spec tabs ──
+function switchTab(btn, panelId) {
+  document.querySelectorAll('.spec-tab').forEach(function(t)   { t.classList.remove('active'); });
+  document.querySelectorAll('.spec-panel').forEach(function(p) { p.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById(panelId).classList.add('active');
+}
+
+function updateLightboxTransform() {
+  var image = document.getElementById('lightboxImage');
+  if (!image) return;
+  image.style.transformOrigin = lightboxState.originX + '% ' + lightboxState.originY + '%';
+  image.style.transform = 'translate3d(' + lightboxState.translateX + 'px,' + lightboxState.translateY + 'px,0) scale(' + lightboxState.scale + ')';
+}
+
+function openImageLightbox(src, alt) {
+  var lightbox = document.getElementById('imageLightbox');
+  var image = document.getElementById('lightboxImage');
+  var stage = document.getElementById('lightboxStage');
+  if (!lightbox || !image || !stage || !src) return;
+
+  lightboxState.open = true;
+  lightboxState.scale = 1;
+  lightboxState.translateX = 0;
+  lightboxState.translateY = 0;
+  lightboxState.originX = 50;
+  lightboxState.originY = 50;
+  lightboxState.dragging = false;
+  lightboxState.activePointers.clear();
+  lightboxState.pinchStartDistance = 0;
+
+  image.src = src;
+  image.alt = alt || 'Product preview';
+  lightbox.classList.add('open');
+  lightbox.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  updateLightboxTransform();
+}
+
+function closeImageLightbox() {
+  var lightbox = document.getElementById('imageLightbox');
+  var image = document.getElementById('lightboxImage');
+  if (!lightbox || !image) return;
+
+  lightboxState.open = false;
+  lightboxState.dragging = false;
+  lightboxState.activePointers.clear();
+  lightboxState.pinchStartDistance = 0;
+  lightbox.classList.remove('open');
+  lightbox.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+
+  setTimeout(function() {
+    if (!lightboxState.open) {
+      image.removeAttribute('src');
+      image.style.transform = 'translate3d(0,0,0) scale(1)';
+    }
+  }, 240);
+}
+
+function initImageLightbox() {
+  var lightbox = document.getElementById('imageLightbox');
+  var stage = document.getElementById('lightboxStage');
+  var image = document.getElementById('lightboxImage');
+  if (!lightbox || !stage || !image || lightboxState._initialized) return;
+  lightboxState._initialized = true;
+
+  document.addEventListener('click', function(e) {
+    var trigger = e.target.closest('.js-lightbox-trigger');
+    if (trigger && trigger.getAttribute('data-lightbox-src')) {
+      e.preventDefault();
+      if (trigger.getAttribute('data-lightbox-stop') === '1') {
+        e.stopPropagation();
+      }
+      openImageLightbox(trigger.getAttribute('data-lightbox-src'), trigger.getAttribute('alt'));
+      return;
+    }
+
+    if (e.target.closest('[data-lightbox-close]')) {
+      e.preventDefault();
+      closeImageLightbox();
+    }
+  }, true);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && lightboxState.open) {
+      closeImageLightbox();
+    }
+  });
+
+  stage.addEventListener('wheel', function(e) {
+    if (!lightboxState.open) return;
+    e.preventDefault();
+    var delta = e.deltaY < 0 ? 0.12 : -0.12;
+    lightboxState.scale = Math.min(4, Math.max(1, lightboxState.scale + delta));
+    var rect = stage.getBoundingClientRect();
+    lightboxState.originX = ((e.clientX - rect.left) / rect.width) * 100;
+    lightboxState.originY = ((e.clientY - rect.top) / rect.height) * 100;
+    updateLightboxTransform();
+  }, { passive: false });
+
+  stage.addEventListener('pointerdown', function(e) {
+    if (!lightboxState.open) return;
+    stage.setPointerCapture(e.pointerId);
+    lightboxState.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (lightboxState.activePointers.size === 1) {
+      lightboxState.dragging = true;
+      lightboxState.pointerStartX = e.clientX;
+      lightboxState.pointerStartY = e.clientY;
+      lightboxState.startTranslateX = lightboxState.translateX;
+      lightboxState.startTranslateY = lightboxState.translateY;
+    }
+
+    if (lightboxState.activePointers.size === 2) {
+      var points = Array.from(lightboxState.activePointers.values());
+      lightboxState.pinchStartDistance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+      lightboxState.pinchStartScale = lightboxState.scale;
+      var rect = stage.getBoundingClientRect();
+      var midpointX = (points[0].x + points[1].x) / 2;
+      var midpointY = (points[0].y + points[1].y) / 2;
+      lightboxState.pinchStartOriginX = ((midpointX - rect.left) / rect.width) * 100;
+      lightboxState.pinchStartOriginY = ((midpointY - rect.top) / rect.height) * 100;
+      lightboxState.originX = lightboxState.pinchStartOriginX;
+      lightboxState.originY = lightboxState.pinchStartOriginY;
+      lightboxState.dragging = false;
+    }
+  });
+
+  stage.addEventListener('pointermove', function(e) {
+    if (!lightboxState.open || !lightboxState.activePointers.has(e.pointerId)) return;
+    lightboxState.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (lightboxState.activePointers.size === 1 && lightboxState.dragging && lightboxState.scale > 1) {
+      lightboxState.translateX = lightboxState.startTranslateX + (e.clientX - lightboxState.pointerStartX);
+      lightboxState.translateY = lightboxState.startTranslateY + (e.clientY - lightboxState.pointerStartY);
+      updateLightboxTransform();
+      return;
+    }
+
+    if (lightboxState.activePointers.size === 2) {
+      var points = Array.from(lightboxState.activePointers.values());
+      var currentDistance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+      if (lightboxState.pinchStartDistance > 0) {
+        lightboxState.scale = Math.min(4, Math.max(1, lightboxState.pinchStartScale * (currentDistance / lightboxState.pinchStartDistance)));
+        updateLightboxTransform();
+      }
+    }
+  });
+
+  function endPointer(e) {
+    if (!lightboxState.activePointers.has(e.pointerId)) return;
+    lightboxState.activePointers.delete(e.pointerId);
+    if (lightboxState.activePointers.size === 0) {
+      lightboxState.dragging = false;
+      lightboxState.pinchStartDistance = 0;
+    }
+  }
+
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHECKOUT PIPELINE — Cashfree + Supabase integration
+// ══════════════════════════════════════════════════════════════════
+async function initiateCheckout() {
+  var payBtn = document.getElementById('payBtn');
+  var loadingOverlay = document.getElementById('loadingOverlay');
+
+  if (payBtn) {
+    payBtn.disabled = true;
+    payBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:1.5px;margin:0"></div> Processing...';
+  }
+
+  if (loadingOverlay) {
+    loadingOverlay.classList.add('active');
+  }
+
+  try {
+    if (!supabaseClient) {
+      throw new Error('Supabase client not initialized. Please check your public anon key.');
+    }
+    if (!cashfree && typeof initCashfree === 'function') {
+      initCashfree();
+    }
+    if (!cashfree) {
+      throw new Error('Cashfree SDK not loaded. Please refresh the page.');
+    }
+    if (!currentProduct || currentProduct.outOfStock) {
+      throw new Error('Selected product is unavailable.');
+    }
+
+    var name    = (document.getElementById('sName')    || {}).value || '';
+    var email   = (document.getElementById('sEmail')   || {}).value || '';
+    var phone   = (document.getElementById('sPhone')   || {}).value || '';
+    var address = (document.getElementById('sAddress') || {}).value || '';
+    var pincode = (document.getElementById('sPincode') || {}).value || '';
+
+    name    = name.trim();
+    email   = email.trim();
+    phone   = phone.trim();
+    address = address.trim();
+    pincode = pincode.trim();
+
+    if (!name || !email || !phone || !address || !pincode) {
+      throw new Error('Please fill in all shipping details to continue.');
+    }
+
+    if (typeof AVAILABLE_SIZES !== 'undefined' && AVAILABLE_SIZES.indexOf(selectedSize) === -1) {
+      selectedSize = 'M';
+    }
+
+    var orderPayload = {
+      customer_name: String(name),
+      customer_email: String(email),
+      customer_phone: String(phone),
+      shipping_address: String(address),
+      pincode: String(pincode),
+      product_id: currentProduct.id,
+      product_name: String(currentProduct.name),
+      product_price: Number(currentProduct.price),
+      selected_size: selectedSize || 'M',
+      selected_color: selectedColor || 'N/A',
+      payment_status: 'pending',
+    };
+
+    var backendResponse = await fetch('http://localhost:5000/api/create-cashfree-order', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(orderPayload),
+    });
+
+    var backendData = await backendResponse.json();
+    if (!backendResponse.ok) {
+      throw new Error(backendData.message || 'Cashfree checkout initialization failed.');
+    }
+
+    var paymentSessionId = backendData.payment_session_id;
+    var cfOrderId        = backendData.cf_order_id;
+    if (!paymentSessionId || !cfOrderId) {
+      throw new Error('Invalid Cashfree response.');
+    }
+
+    if (loadingOverlay) {
+      loadingOverlay.classList.remove('active');
+    }
+
+    cashfree.checkout({ paymentSessionId: paymentSessionId });
+  } catch (err) {
+    console.error('[checkout]', err);
+    showFormError('Checkout failed: ' + err.message);
+    resetPayBtn();
+    if (loadingOverlay) {
+      loadingOverlay.classList.remove('active');
+    }
+  }
+}
+
+async function verifyCashfreePayment(supabaseOrderId, cfOrderId) {
+  document.getElementById('loadingOverlay').classList.add('active');
+  try {
+    var res = await fetch('/api/verify-cashfree-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supabaseOrderId: supabaseOrderId, cfOrderId: cfOrderId }),
+    });
+
+    var data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Payment verification failed.');
+    }
+
+    document.getElementById('successDesc').innerText =
+      'Payment confirmed. Order ID: ' + (data.orderId || data.order_id || 'N/A') + '. Confirmation sent to your email.';
+    document.getElementById('successModal').classList.add('active');
+    bag = [];
+    updateBagUI();
+  } catch (err) {
+    console.error('[verifyCashfreePayment]', err);
+    alert('Verification error: ' + err.message + '\nContact: drapestorestudio@gmail.com');
+  } finally {
+    document.getElementById('loadingOverlay').classList.remove('active');
+    resetPayBtn();
+  }
+}
+
+function resetPayBtn() {
+  var btn = document.getElementById('payBtn');
+  if (!btn || !currentProduct) return;
+  btn.disabled  = false;
+  btn.innerHTML =
+    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+    'Pay Securely — &#8377;' + currentProduct.price.toLocaleString('en-IN') + '.00';
+}
+
+function showFormError(msg) {
+  var existing = document.getElementById('formErrMsg');
+  if (existing) existing.remove();
+  var el       = document.createElement('div');
+  el.id        = 'formErrMsg';
+  el.style.cssText = 'width:100%;margin-bottom:12px;padding:14px 16px;border:0.5px solid rgba(255,180,90,0.34);background:rgba(255,180,90,0.08);font-size:12px;color:rgba(255,220,170,0.95);letter-spacing:.4px;text-transform:none;line-height:1.6';
+  el.textContent   = msg;
+  var btn = document.getElementById('payBtn');
+  if (btn) btn.parentNode.insertBefore(el, btn);
+  setTimeout(function() { if (el.parentNode) el.remove(); }, 5000);
+}
+
+function closeSuccess() {
+  document.getElementById('successModal').classList.remove('active');
+  showView('home');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// BAG — Fixed removal with fade animation
+// ══════════════════════════════════════════════════════════════════
+function addToBag(product, size, color) {
+  // Ensure size is whitelisted
+  if (typeof AVAILABLE_SIZES !== 'undefined' && AVAILABLE_SIZES.indexOf(size) === -1) {
+    showFormError('Invalid size selected.');
+    return;
+  }
+  var exists = bag.find(function(i) {
+    return i.product.id === product.id && i.size === size && i.color === color;
+  });
+  if (!exists) bag.push({ product: product, size: size, color: color });
+  updateBagUI();
+  toggleBag(true);
+}
+
+function removeFromBag(index) {
+  var items  = document.querySelectorAll('.bag-item');
+  var target = items[index];
+  if (target) {
+    target.classList.add('removing');
+    setTimeout(function() {
+      bag.splice(index, 1);
+      updateBagUI();
+    }, 300);
+  } else {
+    bag.splice(index, 1);
+    updateBagUI();
+  }
+}
+
+function toggleBag(open) {
+  document.getElementById('bagDrawer').classList.toggle('open', open);
+  document.getElementById('bagOverlay').classList.toggle('open', open);
+}
+
+function updateBagUI() {
+  var countEl    = document.getElementById('bagCount');
+  var mobCountEl = document.getElementById('mobBagCount');
+  var bodyEl     = document.getElementById('bagBody');
+  var subEl      = document.getElementById('bagSubtotal');
+
+  if (bag.length === 0) {
+    countEl.style.display = 'none';
+    if (mobCountEl) mobCountEl.textContent = '';
+    bodyEl.innerHTML = '<div class="bag-empty">Your Bag Is Empty</div>';
+    subEl.textContent = '₹0';
+    return;
+  }
+
+  countEl.style.display = 'flex';
+  countEl.textContent   = bag.length;
+  if (mobCountEl) mobCountEl.textContent = '(' + bag.length + ')';
+
+  var total = 0;
+  bodyEl.innerHTML = bag.map(function(item, i) {
+    total += item.product.price;
+    var metaStr = (item.color && item.color !== 'N/A')
+      ? 'Size: ' + item.size + ' · ' + item.color
+      : 'Size: ' + item.size;
+    var img = (item.color && item.product.colors)
+      ? (item.product.colors.find(function(c) { return c.name === item.color; }) || item.product.colors[0]).images[0]
+      : item.product.images[0];
+    return (
+      '<div class="bag-item" id="bitem-' + i + '">' +
+        '<img src="' + img + '" alt="' + item.product.name + '">' +
+        '<div class="bag-info">' +
+          '<div class="bag-iname">' + item.product.name + '</div>' +
+          '<div class="bag-imeta">' + metaStr + '</div>' +
+          '<div class="bag-iprice">&#8377;' + item.product.price.toLocaleString('en-IN') + '</div>' +
+        '</div>' +
+        '<button class="bag-remove" onclick="removeFromBag(' + i + ')">&#x2715;</button>' +
+      '</div>'
+    );
+  }).join('');
+
+  subEl.textContent = '₹' + total.toLocaleString('en-IN');
+}
+
+function proceedCheckout() {
+  toggleBag(false);
+  if (currentProduct && document.getElementById('product-view').style.display === 'block') {
+    document.getElementById('sName') && document.getElementById('sName').focus();
+  } else if (bag.length > 0) {
+    openDetail(bag[0].product.id);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONTACT FORM
+// ══════════════════════════════════════════════════════════════════
+function submitContact() {
+  var name    = document.getElementById('cName').value.trim();
+  var email   = document.getElementById('cEmail').value.trim();
+  var message = document.getElementById('cMessage').value.trim();
+  if (!name || !email || !message) {
+    alert('Please fill in your name, email and message.');
+    return;
+  }
+  document.getElementById('cName').value    = '';
+  document.getElementById('cEmail').value   = '';
+  document.getElementById('cSubject').value = '';
+  document.getElementById('cMessage').value = '';
+  var ok = document.getElementById('contactOk');
+  ok.classList.add('show');
+  setTimeout(function() { ok.classList.remove('show'); }, 7000);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// THREE.JS HERO ENGINE — Icosahedron + particles + mouse parallax
+// ══════════════════════════════════════════════════════════════════
+function initHero3D() {
+  var canvas = document.getElementById('hero-canvas');
+  if (!canvas || typeof THREE === 'undefined') return;
+
+  var scene    = new THREE.Scene();
+  var camera   = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.z = 8;
+
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  // Outer wireframe
+  var meshOuter = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(2, 2),
+    new THREE.MeshPhongMaterial({ color: 0xc8ff00, wireframe: true, transparent: true, opacity: 0.12, shininess: 100 })
+  );
+  scene.add(meshOuter);
+
+  // Inner sphere wireframe
+  var meshInner = new THREE.Mesh(
+    new THREE.SphereGeometry(1.15, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.025 })
+  );
+  scene.add(meshInner);
+
+  // Particle field
+  var pCount = 150;
+  var pPos   = new Float32Array(pCount * 3);
+  for (var i = 0; i < pCount * 3; i++) pPos[i] = (Math.random() - 0.5) * 24;
+  var pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  var particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xc8ff00, size: 0.035, transparent: true, opacity: 0.2 }));
+  scene.add(particles);
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+  var dLight = new THREE.DirectionalLight(0xc8ff00, 0.7);
+  dLight.position.set(5, 5, 5);
+  scene.add(dLight);
+  var pLight = new THREE.PointLight(0xffffff, 0.45, 50);
+  pLight.position.set(-5, -5, 3);
+  scene.add(pLight);
+
+  // Mouse parallax
+  var mx = 0, my = 0;
+  window.addEventListener('mousemove', function(e) {
+    mx = (e.clientX / window.innerWidth  - 0.5) * 0.55;
+    my = (e.clientY / window.innerHeight - 0.5) * 0.38;
+  });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    var t = Date.now() * 0.001;
+    meshOuter.rotation.y  += 0.0028;
+    meshOuter.rotation.x  += 0.001;
+    meshInner.rotation.y  -= 0.0018;
+    meshOuter.position.y   = Math.sin(t) * 0.14;
+    particles.rotation.y  += 0.0004;
+    camera.position.x     += (mx - camera.position.x) * 0.04;
+    camera.position.y     += (-my - camera.position.y) * 0.04;
+    camera.lookAt(scene.position);
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener('resize', function() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  animate();
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// RELATED PRODUCTS ENGINE — "You May Also Like"
+// Renders 4 other products from the catalog below the detail view
+// ══════════════════════════════════════════════════════════════════
+function renderRelated(currentId) {
+  // Filter out current product, pick up to 4 others
+  var pool = products.filter(function(p) { return p.id !== currentId; });
+  // Take first 4 from the already-shuffled array for consistency
+  var picks = pool.slice(0, 4);
+
+  var cards = picks.map(function(p) {
+    var img = p.colors ? p.colors[0].images[0] : p.images[0];
+
+    var priceRow;
+    if (p.outOfStock) {
+      priceRow = '<span class="rel-oos-tag">Out Of Stock</span>';
+    } else if (p.originalPrice && p.originalPrice !== p.price) {
+      priceRow = (
+        '<span class="rel-price-active">&#8377;' + p.price.toLocaleString('en-IN') + '</span>' +
+        '<span class="rel-price-orig">&#8377;'   + p.originalPrice.toLocaleString('en-IN') + '</span>'
+      );
+    } else {
+      priceRow = '<span class="rel-price-active">&#8377;' + p.price.toLocaleString('en-IN') + '</span>';
+    }
+
+    return (
+      '<div class="rel-card" onclick="openDetail(\'' + p.id + '\')">' +
+        '<div class="rel-img"><img src="' + img + '" alt="' + p.name + '" loading="lazy"></div>' +
+        '<div class="rel-info">' +
+          '<div class="rel-name">' + p.name + '</div>' +
+          '<div class="rel-price-row">' + priceRow + '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  return (
+    '<div class="related-section">' +
+      '<div class="related-title">YOU MAY ALSO LIKE</div>' +
+      '<div class="related-grid">' + cards + '</div>' +
+    '</div>'
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════════════════
+window.onload = function() {
+  initProducts();
+  initImageLightbox();
+  initHero3D();
+  showView('home');
+};
+</script>
+</body>
+</html>
