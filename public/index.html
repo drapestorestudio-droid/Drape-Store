@@ -1428,7 +1428,8 @@ async function initiateCheckout() {
       payment_status: 'pending',
     };
 
-    var backendResponse = await fetch('http://localhost:5000/api/create-cashfree-order', {
+    var apiEndpoint = '/api/create-cashfree-order';
+    var backendResponse = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -1437,13 +1438,13 @@ async function initiateCheckout() {
       body: JSON.stringify(orderPayload),
     });
 
-    var backendData = await backendResponse.json();
+    var backendData = await backendResponse.json().catch(function () { return {}; });
     if (!backendResponse.ok) {
-      throw new Error(backendData.message || 'Cashfree checkout initialization failed.');
+      throw new Error(backendData.message || backendData.error || `Cashfree checkout initialization failed (${backendResponse.status})`);
     }
 
-    var paymentSessionId = backendData.payment_session_id;
-    var cfOrderId        = backendData.cf_order_id;
+    var paymentSessionId = backendData.payment_session_id || backendData.paymentSessionId;
+    var cfOrderId        = backendData.cf_order_id || backendData.cfOrderId;
     if (!paymentSessionId || !cfOrderId) {
       throw new Error('Invalid Cashfree response.');
     }
@@ -1454,7 +1455,7 @@ async function initiateCheckout() {
 
     cashfree.checkout({ paymentSessionId: paymentSessionId });
   } catch (err) {
-    console.error('[checkout]', err);
+    console.error('Checkout Initialization Error:', err);
     showFormError('Checkout failed: ' + err.message);
     resetPayBtn();
     if (loadingOverlay) {

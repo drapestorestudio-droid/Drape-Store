@@ -274,9 +274,7 @@
 
   <script>
     (function() {
-      const backendBase = 'http://localhost:5000';
-      const params = new URLSearchParams(window.location.search);
-      const orderId = params.get('order_id') || params.get('orderId') || params.get('cf_order_id') || params.get('cfOrderId') || params.get('payment_session_id') || '';
+      const backendBase = window.location.origin;
 
       const elements = {
         statusBanner: document.getElementById('statusBanner'),
