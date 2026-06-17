@@ -1429,6 +1429,8 @@ async function initiateCheckout() {
     };
 
     var apiEndpoint = '/api/create-cashfree-order';
+    console.log('Checkout fetch origin:', window.location.origin);
+    console.log('Checkout fetch endpoint:', apiEndpoint);
     var backendResponse = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
@@ -1455,7 +1457,8 @@ async function initiateCheckout() {
 
     cashfree.checkout({ paymentSessionId: paymentSessionId });
   } catch (err) {
-    console.error('Checkout Initialization Error:', err);
+    console.error('FULL FETCH ERROR:', err);
+    alert('Network error details: ' + (err && err.message ? err.message : String(err)));
     showFormError('Checkout failed: ' + err.message);
     resetPayBtn();
     if (loadingOverlay) {
