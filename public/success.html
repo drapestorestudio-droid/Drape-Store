@@ -274,7 +274,8 @@
 
   <script>
     (function() {
-      const backendBase = window.location.origin;
+      // Force the live DRAPE backend URL so verification doesn't rely on the current origin.
+      const backendBase = 'https://drape-store-backend.onrender.com';
 
       const elements = {
         statusBanner: document.getElementById('statusBanner'),

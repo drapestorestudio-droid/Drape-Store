@@ -1430,8 +1430,8 @@ async function initiateCheckout() {
 
     // In production, this backend is served from the same Render Web Service root.
     // If you deploy the backend separately, replace this with the live backend origin:
-    // var apiEndpoint = 'https://your-render-backend-url.onrender.com/api/create-cashfree-order';
-    var apiEndpoint = '/api/create-cashfree-order';
+    // Use the live DRAPE backend instead of a relative path or localhost.
+    var apiEndpoint = 'https://drape-store-backend.onrender.com/api/create-cashfree-order';
     console.log('Checkout fetch origin:', window.location.origin);
     console.log('Checkout fetch endpoint:', apiEndpoint);
     var backendResponse = await fetch(apiEndpoint, {
@@ -1473,7 +1473,7 @@ async function initiateCheckout() {
 async function verifyCashfreePayment(supabaseOrderId, cfOrderId) {
   document.getElementById('loadingOverlay').classList.add('active');
   try {
-    var res = await fetch('/api/verify-cashfree-payment', {
+    var res = await fetch('https://drape-store-backend.onrender.com/api/verify-cashfree-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ supabaseOrderId: supabaseOrderId, cfOrderId: cfOrderId }),
