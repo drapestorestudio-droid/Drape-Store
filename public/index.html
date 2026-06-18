@@ -1428,6 +1428,9 @@ async function initiateCheckout() {
       payment_status: 'pending',
     };
 
+    // In production, this backend is served from the same Render Web Service root.
+    // If you deploy the backend separately, replace this with the live backend origin:
+    // var apiEndpoint = 'https://your-render-backend-url.onrender.com/api/create-cashfree-order';
     var apiEndpoint = '/api/create-cashfree-order';
     console.log('Checkout fetch origin:', window.location.origin);
     console.log('Checkout fetch endpoint:', apiEndpoint);
