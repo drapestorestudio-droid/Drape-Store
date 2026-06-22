@@ -12,7 +12,7 @@ const PORT = Number(process.env.PORT || 5000);
 const CF_APP_ID = (process.env.CF_APP_ID || process.env.CASHFREE_APP_ID || '').trim();
 const CF_SECRET_KEY = (process.env.CF_SECRET_KEY || process.env.CASHFREE_SECRET_KEY || '').trim();
 const CASHFREE_ENV_URL = process.env.CASHFREE_ENV_URL || 'https://api.cashfree.com/pg';
-const CASHFREE_RETURN_URL = 'https://drapestore.co/public/cart.html?order_id={order_id}';
+const CASHFREE_RETURN_URL = 'https://drapestore.co/cart.html?order_id={order_id}';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -180,7 +180,7 @@ app.post('/api/create-cashfree-order', async function (req, res) {
         customer_email: customerEmail,
       },
       order_meta: {
-        return_url: 'https://drapestore.co/public/cart.html?order_id={order_id}',
+        return_url: 'https://drapestore.co/cart.html?order_id={order_id}',
       },
     };
 

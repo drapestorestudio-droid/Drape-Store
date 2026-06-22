@@ -1376,7 +1376,7 @@ function initiateCheckout() {
 
   // Save cart to localStorage and redirect to central checkout form
   localStorage.setItem('drapeCart', JSON.stringify(cartPayload));
-  window.location.href = '/public/cart.html';
+  window.location.href = '/cart.html';
 }
 
 async function verifyCashfreePayment(supabaseOrderId, cfOrderId) {
