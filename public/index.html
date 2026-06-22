@@ -117,6 +117,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;padding:0 56px;height:68px;d
 /* ── PRODUCT GRID — compact editorial scale ── */
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:2px}
 
+.soon-announcement{display:flex;justify-content:center;align-items:center;padding:44px 16px 24px;margin:0 auto 0;max-width:980px;text-align:center}
+.soon-announcement span{display:inline-block;padding:18px 28px;border:1px solid rgba(255,255,255,0.1);border-radius:14px;color:rgba(238,225,179,0.92);font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;text-transform:uppercase;background:rgba(255,255,255,0.02);box-shadow:0 20px 60px rgba(0,0,0,0.16)}
+
 /* card stagger */
 @keyframes cardUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
 .pgrid .pcard{opacity:0;animation:cardUp .5s cubic-bezier(0.16,1,0.3,1) forwards}
@@ -487,6 +490,10 @@ footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:cen
     <div class="pgrid" id="products-grid"></div>
   </div>
 
+  <div class="soon-announcement">
+    <span>More Premium Stock Coming Soon</span>
+  </div>
+
   <footer>
     <div class="footer-brand">DRAPE</div>
     <div class="footer-links">
@@ -690,15 +697,7 @@ var products = [
     images: ['assets/products/p13_back.jpeg', 'assets/products/p13_front.jpeg'],
     colors: null
   },
-  {
-    id: 'p14', type: 'tshirt', category: 'premium', price: 899, originalPrice: 999,
-    name: 'DRAPE SPECIAL MAHARAJA RANJIT SINGH TEE',
-    badge: 'Premium', badgeType: 'default', outOfStock: false,
-    desc: 'Premium heavyweight canvas with tonal shadow logo print for a minimalist yet bold statement. Crafted for elevated daily wear.',
-    specs: { material: ['Premium heavyweight cotton', 'Tonal shadow logo print', 'Structured boxy fit', 'Ribbed collar and cuffs'], care: ['Cold machine wash', 'Dry flat in shade', 'Iron inside out', 'No bleach'] },
-    images: ['assets/products/p14_back.png', 'assets/products/p14_front.jpeg'],
-    colors: null
-  },
+
   {
     id: 'p15', type: 'tshirt', category: 'premium', price: 899, originalPrice: 999,
     name: 'DRAPE SPECIAL MAHARAJA DULEEP SINGH TEE',
@@ -717,15 +716,7 @@ var products = [
     images: ['assets/products/p9_front.png', 'assets/products/p9_back.jpeg'],
     colors: null
   },
-  {
-    id: 'p3', type: 'tshirt', price: 799, originalPrice: 999,
-    name: 'GHOST RACER TEE',
-    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
-    desc: 'Built Different. Made to Lead. Not to Follow. Purple lightning storm JDM racer graphic on a luxury heavyweight silhouette.',
-    specs: { material: ['Luxury heavyweight oversized build', 'Boxy dropped-shoulder silhouette', 'Purple storm JDM graphic print', 'Japanese katakana accent branding'], care: ['Cold machine wash', 'Do not tumble dry', 'Press on reverse', 'No bleach'] },
-    images: ['assets/products/p3_front.png', 'assets/products/p3_back.jpeg'],
-    colors: null
-  },
+
   {
     id: 'p12', type: 'trackpant', price: 999, originalPrice: null,
     name: 'DRAPE CORE ARCHIVE SWEATPANTS',
@@ -777,33 +768,9 @@ var products = [
     images: ['assets/products/p7_front.png', 'assets/products/p7_back.png'],
     colors: null
   },
-  {
-    id: 'p4', type: 'tshirt', price: 799, originalPrice: 999,
-    name: 'PEAK ASCENT TEE',
-    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
-    desc: 'Rise Above. Stay True. Barbed-wire logo over a monochrome mountain summit graphic. Luxury boxy heavyweight silhouette with minimal design intent.',
-    specs: { material: ['Luxury heavyweight structural build', 'Barbed wire graphic motif', 'Mountain summit monochrome print', 'Oversized boxy drop-shoulder fit'], care: ['Cold wash gentle cycle', 'No tumble dry', 'Iron on reverse', 'No bleach'] },
-    images: ['assets/products/p4_front.png', 'assets/products/p4_back.jpeg'],
-    colors: null
-  },
-  {
-    id: 'p5', type: 'tshirt', price: 799, originalPrice: 999,
-    name: 'F1 STORM TEE',
-    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
-    desc: 'Not Luck. Not Hype. Just Drape. F1 formula car emerging from a lightning storm graphic. Luxury boxy heavyweight silhouette.',
-    specs: { material: ['Luxury heavyweight boxy silhouette', 'Chrome F1 lightning storm graphic', 'Dual-print front detail', 'Structural oversized cut'], care: ['Cold wash only', 'Lay flat to dry', 'Press on reverse', 'No bleach'] },
-    images: ['assets/products/p5_front.png', 'assets/products/p5_back.jpeg'],
-    colors: null
-  },
-  {
-    id: 'p6', type: 'tshirt', price: 799, originalPrice: 999,
-    name: 'WORLDWIDE CHROME TEE',
-    badge: 'Drop 1', badgeType: 'default', outOfStock: false,
-    desc: 'Rooted In Vision. Driven By Purpose. Chrome 3D Drape wordmark over a globe wireframe. Luxury heavyweight silhouette with minimal design.',
-    specs: { material: ['Luxury heavyweight structural build', 'Chrome 3D metallic wordmark print', 'Globe wireframe graphic motif', 'Signature drop-shoulder silhouette'], care: ['Cold gentle wash', 'No tumble dry', 'Iron reverse low heat', 'No bleach'] },
-    images: ['assets/products/p6_front.png', 'assets/products/p6_back.jpeg'],
-    colors: null
-  }
+
+
+
 ];
 
 // Ensure every product exposes a sizes array (adds XXL where missing)
@@ -814,7 +781,14 @@ products.forEach(function(p) {
 // ══════════════════════════════════════════════════════════════════
 // APPLICATION STATE
 // ══════════════════════════════════════════════════════════════════
-var bag             = [];
+var cart = [];
+try {
+  cart = JSON.parse(localStorage.getItem('drapeCart') || '[]');
+  if (!Array.isArray(cart)) cart = [];
+} catch (e) {
+  cart = [];
+}
+var bag             = cart;
 var activeView      = 'home';
 var prevView        = 'home';
 var currentProduct  = null;
@@ -822,6 +796,14 @@ var selectedSize    = 'M';
 var selectedColor   = null;
 var mobileMenuOpen  = false;
 var AVAILABLE_SIZES = ['S','M','L','XL','XXL'];
+
+function saveCart() {
+  try {
+    localStorage.setItem('drapeCart', JSON.stringify(cart));
+  } catch (e) {
+    console.warn('Unable to save cart to localStorage.', e);
+  }
+}
 
 // Supabase + Cashfree initialization
 const SUPABASE_URL = 'https://prugmnpdxswppapxnecv.supabase.co';
@@ -1102,8 +1084,11 @@ function renderDetail() {
           '<div class="fgi fw"><label>Complete Delivery Address</label><textarea class="finput" id="sAddress" rows="3" placeholder="Flat/House No., Street, Area, City, State"></textarea></div>' +
         '</div>' +
       '</div>' +
-      ctaHTML +
-      '<div class="pay-trust">Secured by Cashfree &middot; UPI &middot; Cards &middot; NetBanking &middot; EMI</div>' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:20px">' +
+        '<button class="btn-outline" type="button" onclick="handleAddToBag()">Add to Bag</button>' +
+        ctaHTML +
+      '</div>' +
+      '<div class="pay-trust" style="margin-top:18px">Secured by Cashfree &middot; UPI &middot; Cards &middot; NetBanking &middot; EMI</div>' +
     '</div>'
   );
 
@@ -1414,18 +1399,13 @@ async function initiateCheckout() {
       selectedSize = 'M';
     }
 
-    var orderPayload = {
-      customer_name: String(name),
-      customer_email: String(email),
-      customer_phone: String(phone),
-      shipping_address: String(address),
+    var orderData = {
+      name: String(name),
+      phone: String(phone),
+      email: String(email),
+      address: String(address),
       pincode: String(pincode),
-      product_id: currentProduct.id,
-      product_name: String(currentProduct.name),
-      product_price: Number(currentProduct.price),
-      selected_size: selectedSize || 'M',
-      selected_color: selectedColor || 'N/A',
-      payment_status: 'pending',
+      cart: cart,
     };
 
     // In production, this backend is served from the same Render Web Service root.
@@ -1440,7 +1420,7 @@ async function initiateCheckout() {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(orderPayload),
+      body: JSON.stringify(orderData),
     });
 
     var backendData = await backendResponse.json().catch(function () { return {}; });
@@ -1536,9 +1516,22 @@ function addToBag(product, size, color) {
   var exists = bag.find(function(i) {
     return i.product.id === product.id && i.size === size && i.color === color;
   });
-  if (!exists) bag.push({ product: product, size: size, color: color });
+  if (!exists) {
+    cart.push({ product: product, size: size, color: color, quantity: 1 });
+  } else {
+    exists.quantity = (exists.quantity || 1) + 1;
+  }
+  saveCart();
   updateBagUI();
   toggleBag(true);
+}
+
+function handleAddToBag() {
+  if (!currentProduct || currentProduct.outOfStock) {
+    showFormError('Cannot add unavailable item to the bag.');
+    return;
+  }
+  addToBag(currentProduct, selectedSize, selectedColor);
 }
 
 function removeFromBag(index) {
@@ -1562,12 +1555,17 @@ function toggleBag(open) {
 }
 
 function updateBagUI() {
+  saveCart();
   var countEl    = document.getElementById('bagCount');
   var mobCountEl = document.getElementById('mobBagCount');
   var bodyEl     = document.getElementById('bagBody');
   var subEl      = document.getElementById('bagSubtotal');
 
-  if (bag.length === 0) {
+  var totalItems = cart.reduce(function(sum, item) {
+    return sum + (item.quantity || 1);
+  }, 0);
+
+  if (cart.length === 0) {
     countEl.style.display = 'none';
     if (mobCountEl) mobCountEl.textContent = '';
     bodyEl.innerHTML = '<div class="bag-empty">Your Bag Is Empty</div>';
@@ -1576,15 +1574,16 @@ function updateBagUI() {
   }
 
   countEl.style.display = 'flex';
-  countEl.textContent   = bag.length;
-  if (mobCountEl) mobCountEl.textContent = '(' + bag.length + ')';
+  countEl.textContent   = totalItems;
+  if (mobCountEl) mobCountEl.textContent = '(' + totalItems + ')';
 
   var total = 0;
-  bodyEl.innerHTML = bag.map(function(item, i) {
-    total += item.product.price;
+  bodyEl.innerHTML = cart.map(function(item, i) {
+    var quantity = item.quantity || 1;
+    total += item.product.price * quantity;
     var metaStr = (item.color && item.color !== 'N/A')
-      ? 'Size: ' + item.size + ' · ' + item.color
-      : 'Size: ' + item.size;
+      ? 'Size: ' + item.size + ' · ' + item.color + ' · Qty: ' + quantity
+      : 'Size: ' + item.size + ' · Qty: ' + quantity;
     var img = (item.color && item.product.colors)
       ? (item.product.colors.find(function(c) { return c.name === item.color; }) || item.product.colors[0]).images[0]
       : item.product.images[0];
@@ -1605,12 +1604,7 @@ function updateBagUI() {
 }
 
 function proceedCheckout() {
-  toggleBag(false);
-  if (currentProduct && document.getElementById('product-view').style.display === 'block') {
-    document.getElementById('sName') && document.getElementById('sName').focus();
-  } else if (bag.length > 0) {
-    openDetail(bag[0].product.id);
-  }
+  window.location.href = 'cart.html';
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1762,6 +1756,7 @@ window.onload = function() {
   initProducts();
   initImageLightbox();
   initHero3D();
+  updateBagUI();
   showView('home');
 };
 </script>
