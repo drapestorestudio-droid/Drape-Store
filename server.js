@@ -9,16 +9,16 @@ const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 
 const PORT = Number(process.env.PORT || 5000);
-const CF_APP_ID = (process.env.CF_APP_ID || process.env.CASHFREE_APP_ID || '').trim();
-const CF_SECRET_KEY = (process.env.CF_SECRET_KEY || process.env.CASHFREE_SECRET_KEY || '').trim();
-const CASHFREE_ENV_URL = process.env.CASHFREE_ENV_URL || 'https://api.cashfree.com/pg';
+const CASHFREE_APP_ID = (process.env.CASHFREE_APP_ID || '').trim();
+const CASHFREE_SECRET_KEY = (process.env.CASHFREE_SECRET_KEY || '').trim();
+const CASHFREE_ENV_URL = (process.env.CASHFREE_ENV_URL || (process.env.NODE_ENV === 'production' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg')).trim();
 const CASHFREE_RETURN_URL = 'https://drapestore.co/cart.html?order_id={order_id}';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const missingEnv = [];
-if (!CF_APP_ID) missingEnv.push('CF_APP_ID or CASHFREE_APP_ID');
-if (!CF_SECRET_KEY) missingEnv.push('CF_SECRET_KEY or CASHFREE_SECRET_KEY');
+if (!CASHFREE_APP_ID) missingEnv.push('CASHFREE_APP_ID');
+if (!CASHFREE_SECRET_KEY) missingEnv.push('CASHFREE_SECRET_KEY');
 if (!CASHFREE_ENV_URL) missingEnv.push('CASHFREE_ENV_URL');
 if (!SUPABASE_URL) missingEnv.push('SUPABASE_URL');
 if (!SUPABASE_SERVICE_ROLE_KEY) missingEnv.push('SUPABASE_SERVICE_ROLE_KEY');
@@ -189,8 +189,8 @@ app.post('/api/create-cashfree-order', async function (req, res) {
     const cashfreeUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders';
     const response = await axios.post(cashfreeUrl, payload, {
       headers: {
-        'x-client-id': CF_APP_ID,
-        'x-client-secret': CF_SECRET_KEY,
+        'x-client-id': CASHFREE_APP_ID,
+        'x-client-secret': CASHFREE_SECRET_KEY,
         'x-api-version': '2023-08-01',
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -296,8 +296,8 @@ async function verifyCashfreePayment(req, res, rawOrderId) {
     const statusUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders/' + encodeURIComponent(orderId);
     const statusResponse = await axios.get(statusUrl, {
       headers: {
-        'x-client-id': CF_APP_ID,
-        'x-client-secret': CF_SECRET_KEY,
+        'x-client-id': CASHFREE_APP_ID,
+        'x-client-secret': CASHFREE_SECRET_KEY,
         'x-api-version': '2023-08-01',
         'Accept': 'application/json',
       },
