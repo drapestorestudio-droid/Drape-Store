@@ -276,6 +276,11 @@
     (function() {
       // Force the live DRAPE backend URL so verification doesn't rely on the current origin.
       const backendBase = 'https://drape-store-backend.onrender.com';
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderId = urlParams.get('order_id') || urlParams.get('orderId') || '';
+
+      // Clear the customer bag after the payment flow finished.
+      localStorage.removeItem('drapeCart');
 
       const elements = {
         statusBanner: document.getElementById('statusBanner'),
