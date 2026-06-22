@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout — DRAPE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+  <style>
+    /* ── RESET & TOKENS ── */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --black: #080808;
+      --deep: #040404;
+      --white: #f0ede6;
+      --gray: #0f0f0f;
+      --mid: #141414;
+      --card: #111;
+      --neon: #c8ff00;
+      --border: rgba(255, 255, 255, 0.07);
+      --border2: rgba(255, 255, 255, 0.12);
+      --muted: rgba(240, 237, 230, 0.38);
+      --mid-text: rgba(240, 237, 230, 0.6);
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'Space Grotesk', sans-serif;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    ::selection {
+      background: var(--neon);
+      color: #000;
+    }
+
+    ::-webkit-scrollbar {
+      width: 2px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #222;
+    }
+
+    /* ── NOISE TEXTURE ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      pointer-events: none;
+      opacity: 0.018;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ── LOADING OVERLAY ── */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 4, 4, 0.96);
+      backdrop-filter: blur(18px);
+      z-index: 9000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+    }
+
+    .loading-overlay.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 1.5px solid rgba(200, 255, 0, 0.1);
+      border-top-color: var(--neon);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading-text {
+      font-size: 10px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 500;
+      padding: 0 56px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(8, 8, 8, 0.92);
+      backdrop-filter: blur(22px);
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 10px;
+      cursor: pointer;
+      user-select: none;
+      text-decoration: none;
+      color: var(--white);
+      transition: letter-spacing 0.35s ease;
+    }
+
+    .logo:hover {
+      letter-spacing: 13px;
+    }
+
+    .header-nav a {
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color 0.25s;
+    }
+
+    .header-nav a:hover {
+      color: var(--white);
+    }
+
+    /* ── MAIN CONTAINER ── */
+    .checkout-wrapper {
+      margin-top: 68px;
+      min-height: 100vh;
+      padding: 56px;
+      background: var(--black);
+    }
+
+    .checkout-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 56px;
+      align-items: start;
+    }
+
+    /* ── LEFT SIDE: BAG ── */
+    .bag-section {
+      position: relative;
+    }
+
+    .bag-header {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 0.5px solid var(--border2);
+      color: var(--white);
+    }
+
+    #cart-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .bag-empty-message {
+      text-align: center;
+      padding: 80px 40px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      line-height: 2;
+    }
+
+    .cart-item {
+      display: flex;
+      gap: 20px;
+      padding: 20px 0;
+      border-bottom: 0.5px solid var(--border);
+      transition: all 0.3s ease;
+    }
+
+    .cart-item:hover {
+      opacity: 0.8;
+    }
+
+    .cart-item-image {
+      width: 100px;
+      height: 120px;
+      object-fit: cover;
+      border: 0.5px solid var(--border2);
+      flex-shrink: 0;
+    }
+
+    .cart-item-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .cart-item-name {
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--white);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .cart-item-meta {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .cart-item-price-qty {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .cart-item-price {
+      font-size: 13px;
+      letter-spacing: 1px;
+      color: var(--neon);
+      font-weight: 600;
+    }
+
+    .cart-item-quantity {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--mid-text);
+      text-transform: uppercase;
+    }
+
+    .remove-btn {
+      background: none;
+      border: 0.5px solid rgba(200, 255, 0, 0.3);
+      color: rgba(200, 255, 0, 0.7);
+      padding: 6px 14px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.25s;
+      align-self: flex-start;
+    }
+
+    .remove-btn:hover {
+      background: rgba(200, 255, 0, 0.1);
+      color: var(--neon);
+      border-color: var(--neon);
+    }
+
+    /* ── RIGHT SIDE: SUMMARY & CHECKOUT ── */
+    .summary-section {
+      position: sticky;
+      top: 100px;
+    }
+
+    .order-summary {
+      background: rgba(15, 15, 15, 0.6);
+      border: 0.5px solid var(--border2);
+      padding: 32px;
+      margin-bottom: 28px;
+      backdrop-filter: blur(10px);
+    }
+
+    .summary-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 14px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 0.5px solid var(--border);
+      color: var(--white);
+    }
+
+    .summary-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+      color: var(--mid-text);
+    }
+
+    .summary-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 18px;
+      letter-spacing: 2px;
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 0.5px solid var(--border);
+      color: var(--neon);
+      font-weight: 600;
+    }
+
+    /* ── CHECKOUT FORM ── */
+    .checkout-form {
+      background: rgba(15, 15, 15, 0.6);
+      border: 0.5px solid var(--border2);
+      padding: 32px;
+      backdrop-filter: blur(10px);
+    }
+
+    .form-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 12px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 0.5px solid var(--border);
+      color: var(--white);
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--mid-text);
+      margin-bottom: 8px;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      background: rgba(240, 237, 230, 0.04);
+      border: 0.5px solid var(--border);
+      color: var(--white);
+      padding: 12px 14px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      transition: all 0.25s;
+    }
+
+    .form-group input::placeholder,
+    .form-group textarea::placeholder {
+      color: rgba(240, 237, 230, 0.18);
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      background: rgba(240, 237, 230, 0.08);
+      border-color: var(--neon);
+      box-shadow: 0 0 12px rgba(200, 255, 0, 0.1);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .pay-btn {
+      width: 100%;
+      background: var(--neon);
+      color: #000;
+      border: none;
+      padding: 16px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 24px;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .pay-btn:hover:not(:disabled) {
+      background: #d4f000;
+      transform: translateY(-2px);
+      box-shadow: 0 12px 36px rgba(200, 255, 0, 0.2);
+    }
+
+    .pay-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .trust-text {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 16px;
+      text-transform: uppercase;
+    }
+
+    /* ── ERROR MESSAGE ── */
+    .error-message {
+      background: rgba(255, 100, 100, 0.1);
+      border: 0.5px solid rgba(255, 100, 100, 0.3);
+      color: rgba(255, 150, 150, 0.9);
+      padding: 12px 16px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      border-radius: 2px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1024px) {
+      .checkout-wrapper {
+        padding: 28px;
+      }
+
+      .checkout-container {
+        grid-template-columns: 1fr;
+        gap: 36px;
+      }
+
+      .summary-section {
+        position: static;
+      }
+    }
+
+    @media (max-width: 768px) {
+      header {
+        padding: 0 24px;
+      }
+
+      .checkout-wrapper {
+        padding: 16px;
+        margin-top: 60px;
+      }
+
+      .checkout-container {
+        gap: 28px;
+      }
+
+      .bag-header {
+        font-size: 22px;
+        letter-spacing: 6px;
+        margin-bottom: 24px;
+      }
+
+      .cart-item {
+        gap: 14px;
+        padding: 14px 0;
+      }
+
+      .cart-item-image {
+        width: 80px;
+        height: 100px;
+      }
+
+      .order-summary,
+      .checkout-form {
+        padding: 24px;
+      }
+
+      .summary-title,
+      .form-title {
+        font-size: 11px;
+        letter-spacing: 3px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- ═══ HEADER ═══ -->
+  <header>
+    <a href="index.html" class="logo">DRAPE</a>
+    <div class="header-nav">
+      <a href="index.html">← Back to Collection</a>
+    </div>
+  </header>
+
+  <!-- ═══ LOADING OVERLAY ═══ -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Processing Payment</div>
+  </div>
+
+  <!-- ═══ MAIN CHECKOUT ═══ -->
+  <div class="checkout-wrapper">
+    <div class="checkout-container">
+      <!-- LEFT: BAG ITEMS -->
+      <div class="bag-section">
+        <div class="bag-header">Your Selections</div>
+        <div id="cart-items-list"></div>
+      </div>
+
+      <!-- RIGHT: SUMMARY & FORM -->
+      <div class="summary-section">
+        <!-- ORDER SUMMARY -->
+        <div class="order-summary">
+          <div class="summary-title">Order Summary</div>
+          <div class="summary-line">
+            <span>Subtotal</span>
+            <span id="subtotal">₹0</span>
+          </div>
+          <div class="summary-line">
+            <span>Delivery Charges</span>
+            <span id="delivery-charge">₹0</span>
+          </div>
+          <div class="summary-total">
+            <span>Grand Total</span>
+            <span id="total-amount">₹0</span>
+          </div>
+        </div>
+
+        <!-- CHECKOUT FORM -->
+        <div class="checkout-form">
+          <div class="form-title">Shipping Details</div>
+          <div class="error-message" id="errorMessage"></div>
+
+          <div class="form-group">
+            <label for="customer-name">Full Name</label>
+            <input type="text" id="customer-name" placeholder="Your Full Name" autocomplete="name" required>
+          </div>
+
+          <div class="form-group">
+            <label for="customer-email">Email ID</label>
+            <input type="email" id="customer-email" placeholder="you@email.com" autocomplete="email" required>
+          </div>
+
+          <div class="form-group">
+            <label for="customer-phone">Phone Number</label>
+            <input type="tel" id="customer-phone" placeholder="+91 98765 43210" autocomplete="tel" required>
+          </div>
+
+          <div class="form-group">
+            <label for="customer-pincode">Pincode / ZIP Code</label>
+            <input type="text" id="customer-pincode" placeholder="400001" pattern="[0-31]*" maxlength="6" autocomplete="postal-code" required>
+          </div>
+
+          <div class="form-group">
+            <label for="customer-address">Full Shipping Address</label>
+            <textarea id="customer-address" placeholder="Flat/House No., Street, Area, City, State" autocomplete="street-address" required></textarea>
+          </div>
+
+          <button class="pay-btn" id="payButton" onclick="initiateCheckout()">Pay Now</button>
+          <div class="trust-text">✓ Secured by Cashfree · UPI · Cards · NetBanking · EMI</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let cart = [];
+    let cashfree;
+
+    // ══════════════════════════════════════════════════════════════════
+    // INITIALIZATION
+    // ══════════════════════════════════════════════════════════════════
+    function loadCart() {
+      try {
+        const stored = localStorage.getItem('drapeCart');
+        cart = stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        console.error('Error loading cart from localStorage:', e);
+        cart = [];
+      }
+    }
+
+    function initCashfree() {
+      if (typeof Cashfree !== 'undefined') {
+        cashfree = Cashfree({ mode: 'production' });
+      } else {
+        console.error('Cashfree SDK failed to load.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadCart();
+      renderCart();
+      updateSummary();
+      initCashfree();
+    });
+
+    // ══════════════════════════════════════════════════════════════════
+    // RENDER CART ITEMS
+    // ══════════════════════════════════════════════════════════════════
+    function renderCart() {
+      const container = document.getElementById('cart-items-list');
+
+      if (!cart || cart.length === 0) {
+        container.innerHTML = '<div class="bag-empty-message">Your bag is currently empty.<br>Continue shopping to add items.</div>';
+        return;
+      }
+
+      container.innerHTML = cart.map((item, index) => {
+        const product = item.product || {};
+        const image = product.colors && product.colors.length > 0
+          ? product.colors[0].images[0]
+          : (product.images && product.images[0] ? product.images[0] : '');
+        const price = product.price || 0;
+        const quantity = item.quantity || 1;
+        const itemTotal = price * quantity;
+
+        return `
+          <div class="cart-item" data-index="${index}">
+            ${image ? `<img src="${image}" alt="${product.name}" class="cart-item-image">` : ''}
+            <div class="cart-item-details">
+              <div class="cart-item-name">${product.name || 'Unknown Product'}</div>
+              <div class="cart-item-meta">
+                Size: <strong>${item.size || 'N/A'}</strong> · Color: <strong>${item.color || 'N/A'}</strong>
+              </div>
+              <div class="cart-item-price-qty">
+                <span class="cart-item-price">₹${itemTotal.toLocaleString('en-IN')}</span>
+                <span class="cart-item-quantity">Qty: ${quantity}</span>
+              </div>
+              <button class="remove-btn" onclick="removeItem(${index})">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // REMOVE ITEM FROM CART
+    // ══════════════════════════════════════════════════════════════════
+    function removeItem(index) {
+      if (index >= 0 && index < cart.length) {
+        cart.splice(index, 1);
+        localStorage.setItem('drapeCart', JSON.stringify(cart));
+        renderCart();
+        updateSummary();
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // UPDATE SUMMARY
+    // ══════════════════════════════════════════════════════════════════
+    function updateSummary() {
+      let subtotal = 0;
+      cart.forEach((item) => {
+        const price = (item.product && item.product.price) || 0;
+        const quantity = item.quantity || 1;
+        subtotal += price * quantity;
+      });
+
+      // Calculate delivery charges
+      let deliveryCharge = 0;
+      let deliveryText = '₹0';
+      if (subtotal < 1999) {
+        deliveryCharge = 60;
+        deliveryText = '₹60';
+      } else {
+        deliveryCharge = 0;
+        deliveryText = 'FREE';
+      }
+
+      const grandTotal = subtotal + deliveryCharge;
+
+      document.getElementById('subtotal').textContent = '₹' + subtotal.toLocaleString('en-IN');
+      document.getElementById('delivery-charge').textContent = deliveryText;
+      document.getElementById('total-amount').textContent = '₹' + grandTotal.toLocaleString('en-IN');
+
+      // Store delivery charge for checkout
+      window.shippingCharge = deliveryCharge;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // CHECKOUT
+    // ══════════════════════════════════════════════════════════════════
+    function initiateCheckout() {
+      const errorEl = document.getElementById('errorMessage');
+      errorEl.classList.remove('show');
+
+      const getValue = (id) => {
+        const input = document.getElementById(id);
+        if (!input) {
+          console.error('Checkout input not found:', id);
+          return null;
+        }
+        return input.value.trim();
+      };
+
+      const name = getValue('customer-name');
+      const email = getValue('customer-email');
+      const phone = getValue('customer-phone');
+      const pincode = getValue('customer-pincode');
+      const address = getValue('customer-address');
+
+      if (!name) {
+        showError('Please enter your full name.');
+        return;
+      }
+
+      if (!email) {
+        showError('Please enter your email address.');
+        return;
+      }
+
+      if (!phone) {
+        showError('Please enter your phone number.');
+        return;
+      }
+
+      if (!pincode) {
+        showError('Please enter your pincode.');
+        return;
+      }
+
+      if (!address) {
+        showError('Please enter your full shipping address.');
+        return;
+      }
+
+      if (cart.length === 0) {
+        showError('Your cart is empty. Please add items before proceeding.');
+        return;
+      }
+
+      // Show loading
+      document.getElementById('loadingOverlay').classList.add('active');
+      document.getElementById('payButton').disabled = true;
+
+      const payload = {
+        name: name,
+        phone: phone,
+        email: email,
+        address: address,
+        pincode: pincode,
+        cart: JSON.parse(localStorage.getItem('drapeCart')) || [],
+      };
+
+      console.log('DATA BEING SENT TO BACKEND:', payload);
+
+      fetch('https://drape-store-backend.onrender.com/api/create-cashfree-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          document.getElementById('loadingOverlay').classList.remove('active');
+
+          if (data.success === false || data.error) {
+            showError(data.message || 'Checkout failed. Please try again.');
+            document.getElementById('payButton').disabled = false;
+            return;
+          }
+
+          if (!data.payment_session_id) {
+            showError('No payment session received. Please try again.');
+            document.getElementById('payButton').disabled = false;
+            return;
+          }
+
+          // Initialize Cashfree checkout
+          if (!cashfree) {
+            showError('Payment system not ready. Please refresh and try again.');
+            document.getElementById('payButton').disabled = false;
+            return;
+          }
+
+          cashfree
+            .checkout({
+              paymentSessionId: data.payment_session_id,
+              returnUrl: 'https://drape-store-backend.onrender.com/success.html',
+            })
+            .then(() => {
+              console.log('Payment completed successfully');
+            })
+            .catch((error) => {
+              console.error('Cashfree checkout error:', error);
+              showError('Payment popup closed. Please try again.');
+              document.getElementById('payButton').disabled = false;
+            });
+        })
+        .catch((error) => {
+          console.error('Checkout error:', error);
+          document.getElementById('loadingOverlay').classList.remove('active');
+          showError('Network error. Please check your connection and try again.');
+          document.getElementById('payButton').disabled = false;
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ══════════════════════════════════════════════════════════════════
+    function showError(message) {
+      const errorEl = document.getElementById('errorMessage');
+      errorEl.textContent = message;
+      errorEl.classList.add('show');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>

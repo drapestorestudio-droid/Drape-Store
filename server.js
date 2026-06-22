@@ -91,48 +91,67 @@ app.get('/health', function (_req, res) {
 
 app.post('/api/create-cashfree-order', async function (req, res) {
   try {
-    const body = req.body || {};
-    const productPrice = Number(body.product_price || body.productPrice);
-    const customerName = String(body.customer_name || body.customerName || '').trim();
-    const customerEmail = String(body.customer_email || body.customerEmail || '').trim();
-    const customerPhone = String(body.customer_phone || body.customerPhone || '').trim();
-    const shippingAddress = String(body.shipping_address || body.shippingAddress || '').trim();
-    const pincode = String(body.pincode || '').trim();
-    const productId = String(body.product_id || body.productId || '').trim();
-    const productName = String(body.product_name || body.productName || '').trim();
-    const selectedSize = String(body.selected_size || body.selectedSize || 'M').trim() || 'M';
-    const selectedColor = String(body.selected_color || body.selectedColor || 'N/A').trim() || 'N/A';
+    const name = (req.body.name || req.body.customer_name || 'Guest Customer').trim();
+    const phone = (req.body.phone || req.body.customer_phone || '').replace(/\D/g, '');
+    const email = (req.body.email || req.body.customer_email || 'orders@drapestore.co').trim();
+    const address = (req.body.address || req.body.customer_address || '').trim();
+    const pincode = (req.body.pincode || req.body.customer_pincode || '').trim();
+    const cart = req.body.cart || (req.body.product_name ? [{ name: req.body.product_name, price: req.body.price, quantity: 1 }] : []);
 
-    if (!customerName || !customerEmail || !customerPhone || !shippingAddress || !pincode || !productId || !productName) {
+    const customerName = String(name || 'Guest Customer');
+    const customerPhone = String(phone || '').trim();
+    const customerEmail = String(email || 'orders@drapestore.co');
+    const customerAddress = String(address || '').trim();
+    const customerPincode = String(pincode || '').trim();
+
+    // Validate inputs
+    if (!customerName || !customerPhone || !customerEmail || !customerAddress || !customerPincode) {
       return res.status(400).json({
         success: false,
         message: 'Missing required checkout fields.',
       });
     }
 
-    if (!Number.isFinite(productPrice) || productPrice <= 0) {
+    if (!Array.isArray(cart) || cart.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid product_price value.',
+        message: 'Cart is empty or invalid.',
       });
     }
 
+    // Calculate total amount server-side (security best practice)
+    let totalAmount = 0;
+    for (const item of cart) {
+      const price = Number(item.product && item.product.price) || 0;
+      const quantity = Number(item.quantity) || 1;
+      if (price <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid price for item: ${item.product && item.product.name}`,
+        });
+      }
+      totalAmount += price * quantity;
+    }
+
+    if (totalAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cart total amount must be greater than zero.',
+      });
+    }
+
+    // Insert master order into Supabase
+    const shippingValue = customerAddress + ' - ' + customerPincode;
     const { data: orderRow, error: insertError } = await supabaseAdmin
       .from('orders')
       .insert([{
         customer_name: customerName,
-        customer_email: customerEmail,
         customer_phone: customerPhone,
-        pincode: pincode,
-        shipping_address: shippingAddress,
-        product_id: productId,
-        product_name: productName,
-        product_price: productPrice,
-        selected_size: selectedSize,
-        selected_color: selectedColor,
+        customer_email: customerEmail,
+        customer_address: shippingValue,
+        total_amount: totalAmount,
         cf_order_id: null,
-        cf_payment_id: null,
-        payment_status: 'pending',
+        payment_status: 'PENDING',
       }])
       .select('id')
       .single();
@@ -140,27 +159,34 @@ app.post('/api/create-cashfree-order', async function (req, res) {
     if (insertError || !orderRow || !orderRow.id) {
       return res.status(500).json({
         success: false,
-        message: (insertError && insertError.message) || 'Unable to create pending order in Supabase.',
+        message: (insertError && insertError.message) || 'Unable to create order in Supabase.',
       });
     }
 
     const supabaseOrderId = String(orderRow.id);
     const cfOrderId = `drape_${supabaseOrderId}_${Date.now()}`;
 
+    const cleanPhone = customerPhone.length >= 10 ? customerPhone.slice(-10) : '';
+    const customerId = cleanPhone.length >= 10 ? cleanPhone : 'CUST_' + Date.now();
+    const customerPhoneForCashfree = cleanPhone.length >= 10 ? cleanPhone : '9999999999';
+
+    // Prepare Cashfree order payload with calculated total
     const payload = {
       order_id: cfOrderId,
-      order_amount: productPrice.toFixed(2),
+      order_amount: totalAmount.toFixed(2),
       order_currency: 'INR',
       customer_details: {
-        customer_id: supabaseOrderId,
-        customer_name: customerName,
+        customer_id: customerId,
+        customer_phone: customerPhoneForCashfree,
         customer_email: customerEmail,
-        customer_phone: customerPhone,
+        customer_name: customerName,
       },
       order_meta: {
         return_url: CASHFREE_RETURN_URL,
       },
     };
+
+    console.log('Sending to Cashfree:', JSON.stringify(payload, null, 2));
 
     const response = await axios.post(CASHFREE_ENV_URL, payload, {
       headers: {
@@ -187,22 +213,48 @@ app.post('/api/create-cashfree-order', async function (req, res) {
       });
     }
 
-    const { error: pendingUpdateError } = await supabaseAdmin
+    // Update master order with Cashfree order ID
+    const { error: updateError } = await supabaseAdmin
       .from('orders')
       .update({
         cf_order_id: cfOrderId,
-        payment_status: 'pending',
       })
       .eq('id', supabaseOrderId);
 
-    if (pendingUpdateError) {
+    if (updateError) {
       return res.status(500).json({
         success: false,
-        message: 'Cashfree order was created, but the pending Supabase row could not be updated.',
+        message: 'Order created but could not update with Cashfree order ID.',
       });
     }
 
+    // Prepare order_items for bulk insert
+    const orderItems = cart.map((item) => ({
+      order_id: supabaseOrderId,
+      product_id: String(item.product && item.product.id || ''),
+      product_name: String(item.product && item.product.name || ''),
+      product_price: Number(item.product && item.product.price) || 0,
+      quantity: Number(item.quantity) || 1,
+      size: String(item.size || ''),
+      color: String(item.color || 'N/A'),
+    }));
+
+    // Insert individual order items
+    const { error: itemsInsertError } = await supabaseAdmin
+      .from('order_items')
+      .insert(orderItems);
+
+    if (itemsInsertError) {
+      console.error('[Order Items Insert Error]', itemsInsertError);
+      return res.status(500).json({
+        success: false,
+        message: 'Order created but could not save individual items.',
+      });
+    }
+
+    // Return success response with payment details
     return res.status(200).json({
+      success: true,
       payment_session_id: paymentSessionId,
       cf_order_id: cfOrderId,
       supabase_order_id: supabaseOrderId,
