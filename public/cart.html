@@ -757,13 +757,16 @@
       document.getElementById('loadingOverlay').classList.add('active');
       document.getElementById('payButton').disabled = true;
 
+      const cartPayload = JSON.parse(localStorage.getItem('drapeCart') || '[]');
+      if (!Array.isArray(cartPayload) || cartPayload.length === 0) {
+        showError('Your cart is empty. Please add items before proceeding.');
+        document.getElementById('payButton').disabled = false;
+        document.getElementById('loadingOverlay').classList.remove('active');
+        return;
+      }
+
       const payload = {
-        name: name,
-        phone: phone,
-        email: email,
-        address: address,
-        pincode: pincode,
-        cart: JSON.parse(localStorage.getItem('drapeCart')) || [],
+        cart: cartPayload,
       };
 
       console.log('DATA BEING SENT TO BACKEND:', payload);

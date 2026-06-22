@@ -788,6 +788,28 @@ try {
 } catch (e) {
   cart = [];
 }
+
+function getCheckoutCart() {
+  try {
+    var storedCart = JSON.parse(localStorage.getItem('drapeCart') || '[]');
+    if (Array.isArray(storedCart) && storedCart.length) {
+      return storedCart;
+    }
+  } catch (err) {
+    // ignore invalid local storage data
+  }
+
+  if (typeof currentProduct !== 'undefined' && currentProduct && !currentProduct.outOfStock) {
+    return [{
+      product: currentProduct,
+      size: typeof selectedSize !== 'undefined' ? selectedSize : 'M',
+      color: typeof selectedColor !== 'undefined' ? selectedColor : '',
+      quantity: 1,
+    }];
+  }
+
+  return [];
+}
 var bag             = cart;
 var activeView      = 'home';
 var prevView        = 'home';
@@ -1399,13 +1421,13 @@ async function initiateCheckout() {
       selectedSize = 'M';
     }
 
+    var cartPayload = getCheckoutCart();
+    if (!Array.isArray(cartPayload) || cartPayload.length === 0) {
+      throw new Error('Your cart is empty. Add an item before checking out.');
+    }
+
     var orderData = {
-      name: String(name),
-      phone: String(phone),
-      email: String(email),
-      address: String(address),
-      pincode: String(pincode),
-      cart: cart,
+      cart: cartPayload,
     };
 
     // In production, this backend is served from the same Render Web Service root.
