@@ -569,10 +569,7 @@
             <input type="tel" id="customer-phone" placeholder="+91 98765 43210" autocomplete="tel" required>
           </div>
 
-          <div class="form-group">
-            <label for="customer-pincode">Pincode / ZIP Code</label>
-            <input type="text" id="customer-pincode" placeholder="400001" pattern="[0-31]*" maxlength="6" autocomplete="postal-code" required>
-          </div>
+
 
           <div class="form-group">
             <label for="customer-address">Full Shipping Address</label>
@@ -720,7 +717,6 @@
       const name = getValue('customer-name');
       const email = getValue('customer-email');
       const phone = getValue('customer-phone');
-      const pincode = getValue('customer-pincode');
       const address = getValue('customer-address');
 
       if (!name) {
@@ -738,10 +734,6 @@
         return;
       }
 
-      if (!pincode) {
-        showError('Please enter your pincode.');
-        return;
-      }
 
       if (!address) {
         showError('Please enter your full shipping address.');
@@ -766,7 +758,11 @@
       }
 
       const payload = {
-        cart: cartPayload,
+        customer_name: name,
+        customer_email: email,
+        customer_phone: phone,
+        customer_address: address,
+        cart: JSON.parse(localStorage.getItem('drapeCart')) || [],
       };
 
       console.log('DATA BEING SENT TO BACKEND:', payload);
@@ -788,6 +784,13 @@
             return;
           }
 
+          // Prefer redirect to payment_link if provided
+          if (data.payment_link) {
+            window.location.href = data.payment_link;
+            return;
+          }
+
+          // Fallback to payment_session_id for SDK checkout
           if (!data.payment_session_id) {
             showError('No payment session received. Please try again.');
             document.getElementById('payButton').disabled = false;

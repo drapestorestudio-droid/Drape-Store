@@ -9,10 +9,10 @@ const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 
 const PORT = Number(process.env.PORT || 5000);
-const CF_APP_ID = process.env.CF_APP_ID || process.env.CASHFREE_APP_ID;
-const CF_SECRET_KEY = process.env.CF_SECRET_KEY || process.env.CASHFREE_SECRET_KEY;
+const CF_APP_ID = (process.env.CF_APP_ID || process.env.CASHFREE_APP_ID || '').trim();
+const CF_SECRET_KEY = (process.env.CF_SECRET_KEY || process.env.CASHFREE_SECRET_KEY || '').trim();
 const CASHFREE_ENV_URL = process.env.CASHFREE_ENV_URL || 'https://api.cashfree.com/pg';
-const CASHFREE_RETURN_URL = process.env.CASHFREE_RETURN_URL || 'https://stupendous-gnome-e1eec2.netlify.app/success.html';
+const CASHFREE_RETURN_URL = 'https://drapestore.co/public/cart.html?order_id={order_id}';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -91,38 +91,40 @@ app.get('/health', function (_req, res) {
 
 app.post('/api/create-cashfree-order', async function (req, res) {
   try {
-    const name = (req.body.name || req.body.customer_name || 'Guest Customer').trim();
-    const phone = (req.body.phone || req.body.customer_phone || '').replace(/\D/g, '');
-    const email = (req.body.email || req.body.customer_email || 'orders@drapestore.co').trim();
-    const address = (req.body.address || req.body.customer_address || '').trim();
-    const pincode = (req.body.pincode || req.body.customer_pincode || '').trim();
-    const cart = req.body.cart || (req.body.product_name ? [{ name: req.body.product_name, price: req.body.price, quantity: 1 }] : []);
+    // 1. Destructure required fields from incoming payload
+    const {
+      customer_name,
+      customer_email,
+      customer_phone,
+      customer_address,
+      cart: incomingCart,
+    } = req.body || {};
 
-    const customerName = String(name || 'Guest Customer');
-    const customerPhone = String(phone || '').trim();
-    const customerEmail = String(email || 'orders@drapestore.co');
-    const customerAddress = String(address || '').trim();
-    const customerPincode = String(pincode || '').trim();
+    const customerName = String(customer_name || '').trim();
+    const customerEmail = String(customer_email || '').trim();
+    const customerPhone = String((customer_phone || '').replace(/\D/g, '')).trim();
+    const customerAddress = String(customer_address || '').trim();
+    const cart = Array.isArray(incomingCart) ? incomingCart : [];
 
-    // Validate inputs
-    if (!customerName || !customerPhone || !customerEmail || !customerAddress || !customerPincode) {
+    // Validate presence of required fields. Fail fast to avoid blank rows.
+    const missing = [];
+    if (!customerName) missing.push('customer_name');
+    if (!customerEmail) missing.push('customer_email');
+    if (!customerPhone) missing.push('customer_phone');
+    if (!customerAddress) missing.push('customer_address');
+    if (!cart || cart.length === 0) missing.push('cart');
+
+    if (missing.length) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required checkout fields.',
+        message: 'Missing required fields: ' + missing.join(', '),
       });
     }
 
-    if (!Array.isArray(cart) || cart.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cart is empty or invalid.',
-      });
-    }
-
-    // Calculate total amount server-side (security best practice)
+    // 2. Calculate total amount server-side (security best practice)
     let totalAmount = 0;
     for (const item of cart) {
-      const price = Number(item.product && item.product.price) || 0;
+      const price = Number(item.product && (item.product.price || item.price)) || 0;
       const quantity = Number(item.quantity) || 1;
       if (price <= 0) {
         return res.status(400).json({
@@ -134,22 +136,19 @@ app.post('/api/create-cashfree-order', async function (req, res) {
     }
 
     if (totalAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cart total amount must be greater than zero.',
-      });
+      return res.status(400).json({ success: false, message: 'Cart total amount must be greater than zero.' });
     }
 
-    // Insert master order into Supabase
-    const shippingValue = customerAddress + ' - ' + customerPincode;
+    // 2. SUPABASE LOGGING (insert full order BEFORE calling Cashfree)
     const { data: orderRow, error: insertError } = await supabaseAdmin
       .from('orders')
       .insert([{
         customer_name: customerName,
         customer_phone: customerPhone,
         customer_email: customerEmail,
-        customer_address: shippingValue,
+        customer_address: customerAddress,
         total_amount: totalAmount,
+        cart: cart,
         cf_order_id: null,
         payment_status: 'PENDING',
       }])
@@ -166,34 +165,35 @@ app.post('/api/create-cashfree-order', async function (req, res) {
     const supabaseOrderId = String(orderRow.id);
     const cfOrderId = `drape_${supabaseOrderId}_${Date.now()}`;
 
-    const cleanPhone = customerPhone.length >= 10 ? customerPhone.slice(-10) : '';
-    const customerId = cleanPhone.length >= 10 ? cleanPhone : 'CUST_' + Date.now();
-    const customerPhoneForCashfree = cleanPhone.length >= 10 ? cleanPhone : '9999999999';
+    // Use trimmed request phone as customer_id and customer_phone (required by Cashfree)
+    const phoneTrim = String(customer_phone || '').trim() || String(customerPhone || '').trim();
+    const phoneForCashfree = phoneTrim;
 
-    // Prepare Cashfree order payload with calculated total
+    // Prepare Cashfree order payload exactly as required
     const payload = {
-      order_id: cfOrderId,
-      order_amount: totalAmount.toFixed(2),
+      order_amount: totalAmount,
       order_currency: 'INR',
       customer_details: {
-        customer_id: customerId,
-        customer_phone: customerPhoneForCashfree,
-        customer_email: customerEmail,
+        customer_id: phoneForCashfree,
+        customer_phone: phoneForCashfree,
         customer_name: customerName,
+        customer_email: customerEmail,
       },
       order_meta: {
-        return_url: CASHFREE_RETURN_URL,
+        return_url: 'https://drapestore.co/public/cart.html?order_id={order_id}',
       },
     };
 
     console.log('Sending to Cashfree:', JSON.stringify(payload, null, 2));
 
-    const response = await axios.post(CASHFREE_ENV_URL, payload, {
+    const cashfreeUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders';
+    const response = await axios.post(cashfreeUrl, payload, {
       headers: {
-        'Content-Type': 'application/json',
         'x-client-id': CF_APP_ID,
         'x-client-secret': CF_SECRET_KEY,
         'x-api-version': '2023-08-01',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       timeout: 15000,
       validateStatus: () => true,
@@ -205,11 +205,16 @@ app.post('/api/create-cashfree-order', async function (req, res) {
       throw error;
     }
 
-    const paymentSessionId = response.data && response.data.payment_session_id;
-    if (!paymentSessionId) {
+    // Cashfree may return a payment link, order token, or payment_session_id depending on API version
+    const paymentLink = response.data && (response.data.payment_link || response.data.paymentUrl || response.data.paymentLink);
+    const orderToken = response.data && (response.data.order_token || response.data.orderToken || response.data.data && response.data.data.order_token);
+    const paymentSessionId = response.data && (response.data.payment_session_id || response.data.paymentSessionId);
+
+    if (!paymentLink && !orderToken && !paymentSessionId) {
       return res.status(502).json({
         success: false,
-        message: 'Cashfree response did not include a payment_session_id.',
+        message: 'Cashfree response did not include a payment link, order token, or payment_session_id.',
+        cashfree: response.data,
       });
     }
 
@@ -252,13 +257,18 @@ app.post('/api/create-cashfree-order', async function (req, res) {
       });
     }
 
-    // Return success response with payment details
-    return res.status(200).json({
+    // Return success response with payment details (include whichever Cashfree returned)
+    const respBody = {
       success: true,
-      payment_session_id: paymentSessionId,
       cf_order_id: cfOrderId,
       supabase_order_id: supabaseOrderId,
-    });
+      cashfree: response.data,
+    };
+    if (paymentLink) respBody.payment_link = paymentLink;
+    if (orderToken) respBody.order_token = orderToken;
+    if (paymentSessionId) respBody.payment_session_id = paymentSessionId;
+
+    return res.status(200).json(respBody);
   } catch (error) {
     const formatted = formatErrorResponse(error);
     return res.status(formatted.status).json(formatted.body);
@@ -283,12 +293,13 @@ async function verifyCashfreePayment(req, res, rawOrderId) {
       });
     }
 
-    const statusResponse = await axios.get(`${CASHFREE_ENV_URL}/${encodeURIComponent(orderId)}`, {
+    const statusUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders/' + encodeURIComponent(orderId);
+    const statusResponse = await axios.get(statusUrl, {
       headers: {
-        'Content-Type': 'application/json',
         'x-client-id': CF_APP_ID,
         'x-client-secret': CF_SECRET_KEY,
         'x-api-version': '2023-08-01',
+        'Accept': 'application/json',
       },
       timeout: 15000,
       validateStatus: () => true,

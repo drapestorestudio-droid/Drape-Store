@@ -1093,19 +1093,6 @@ function renderDetail() {
         '<li>Shipped from our facility within 24–48 hrs of payment</li>' +
       '</ul></div>' +
       sizeHTML +
-      '<div class="ship-form-wrap">' +
-        '<div class="ship-hd">' +
-          '<div class="ship-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>' +
-          '<div class="sub-label" style="margin-bottom:0">Shipping &amp; Contact Details</div>' +
-        '</div>' +
-        '<div class="form-grid">' +
-          '<div class="fgi"><label>Full Name</label><input type="text" class="finput" id="sName" placeholder="Your full name" autocomplete="name"></div>' +
-          '<div class="fgi"><label>Email</label><input type="email" class="finput" id="sEmail" placeholder="your@email.com" autocomplete="email"></div>' +
-          '<div class="fgi"><label>Phone</label><input type="tel" class="finput" id="sPhone" placeholder="+91 98765 43210" autocomplete="tel"></div>' +
-          '<div class="fgi"><label>Pincode</label><input type="text" class="finput" id="sPincode" placeholder="400001" maxlength="6" autocomplete="postal-code"></div>' +
-          '<div class="fgi fw"><label>Complete Delivery Address</label><textarea class="finput" id="sAddress" rows="3" placeholder="Flat/House No., Street, Area, City, State"></textarea></div>' +
-        '</div>' +
-      '</div>' +
       '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:20px">' +
         '<button class="btn-outline" type="button" onclick="handleAddToBag()">Add to Bag</button>' +
         ctaHTML +
@@ -1372,104 +1359,24 @@ function initImageLightbox() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CHECKOUT PIPELINE — Cashfree + Supabase integration
 // ══════════════════════════════════════════════════════════════════
-async function initiateCheckout() {
-  var payBtn = document.getElementById('payBtn');
-  var loadingOverlay = document.getElementById('loadingOverlay');
-
-  if (payBtn) {
-    payBtn.disabled = true;
-    payBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:1.5px;margin:0"></div> Processing...';
+// CHECKOUT PIPELINE — Route to central checkout form
+// ══════════════════════════════════════════════════════════════════
+function initiateCheckout() {
+  if (!currentProduct || currentProduct.outOfStock) {
+    showFormError('Selected product is unavailable.');
+    return;
   }
 
-  if (loadingOverlay) {
-    loadingOverlay.classList.add('active');
+  var cartPayload = getCheckoutCart();
+  if (!Array.isArray(cartPayload) || cartPayload.length === 0) {
+    showFormError('Your cart is empty. Add an item before checking out.');
+    return;
   }
 
-  try {
-    if (!supabaseClient) {
-      throw new Error('Supabase client not initialized. Please check your public anon key.');
-    }
-    if (!cashfree && typeof initCashfree === 'function') {
-      initCashfree();
-    }
-    if (!cashfree) {
-      throw new Error('Cashfree SDK not loaded. Please refresh the page.');
-    }
-    if (!currentProduct || currentProduct.outOfStock) {
-      throw new Error('Selected product is unavailable.');
-    }
-
-    var name    = (document.getElementById('sName')    || {}).value || '';
-    var email   = (document.getElementById('sEmail')   || {}).value || '';
-    var phone   = (document.getElementById('sPhone')   || {}).value || '';
-    var address = (document.getElementById('sAddress') || {}).value || '';
-    var pincode = (document.getElementById('sPincode') || {}).value || '';
-
-    name    = name.trim();
-    email   = email.trim();
-    phone   = phone.trim();
-    address = address.trim();
-    pincode = pincode.trim();
-
-    if (!name || !email || !phone || !address || !pincode) {
-      throw new Error('Please fill in all shipping details to continue.');
-    }
-
-    if (typeof AVAILABLE_SIZES !== 'undefined' && AVAILABLE_SIZES.indexOf(selectedSize) === -1) {
-      selectedSize = 'M';
-    }
-
-    var cartPayload = getCheckoutCart();
-    if (!Array.isArray(cartPayload) || cartPayload.length === 0) {
-      throw new Error('Your cart is empty. Add an item before checking out.');
-    }
-
-    var orderData = {
-      cart: cartPayload,
-    };
-
-    // In production, this backend is served from the same Render Web Service root.
-    // If you deploy the backend separately, replace this with the live backend origin:
-    // Use the live DRAPE backend instead of a relative path or localhost.
-    var apiEndpoint = 'https://drape-store-backend.onrender.com/api/create-cashfree-order';
-    console.log('Checkout fetch origin:', window.location.origin);
-    console.log('Checkout fetch endpoint:', apiEndpoint);
-    var backendResponse = await fetch(apiEndpoint, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(orderData),
-    });
-
-    var backendData = await backendResponse.json().catch(function () { return {}; });
-    if (!backendResponse.ok) {
-      throw new Error(backendData.message || backendData.error || `Cashfree checkout initialization failed (${backendResponse.status})`);
-    }
-
-    var paymentSessionId = backendData.payment_session_id || backendData.paymentSessionId;
-    var cfOrderId        = backendData.cf_order_id || backendData.cfOrderId;
-    if (!paymentSessionId || !cfOrderId) {
-      throw new Error('Invalid Cashfree response.');
-    }
-
-    if (loadingOverlay) {
-      loadingOverlay.classList.remove('active');
-    }
-
-    cashfree.checkout({ paymentSessionId: paymentSessionId });
-  } catch (err) {
-    console.error('FULL FETCH ERROR:', err);
-    alert('Network error details: ' + (err && err.message ? err.message : String(err)));
-    showFormError('Checkout failed: ' + err.message);
-    resetPayBtn();
-    if (loadingOverlay) {
-      loadingOverlay.classList.remove('active');
-    }
-  }
+  // Save cart to localStorage and redirect to central checkout form
+  localStorage.setItem('drapeCart', JSON.stringify(cartPayload));
+  window.location.href = '/public/cart.html';
 }
 
 async function verifyCashfreePayment(supabaseOrderId, cfOrderId) {
