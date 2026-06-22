@@ -217,8 +217,37 @@ app.post('/api/create-cashfree-order', async function (req, res) {
     });
 
     if (response.status < 200 || response.status >= 300) {
-      const error = new Error('Cashfree order creation failed.');
+          console.log('Sending to Cashfree:', JSON.stringify(payload, null, 2));
       error.response = { status: response.status, data: response.data };
+          const cashfreeUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders';
+          let response;
+          try {
+            response = await axios.post(cashfreeUrl, payload, {
+              headers: {
+                'x-client-id': CASHFREE_CLIENT_ID,
+                'x-client-secret': CASHFREE_CLIENT_SECRET,
+                'x-api-version': '2023-08-01',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              timeout: 15000,
+              validateStatus: () => true,
+            });
+
+            if (response.status < 200 || response.status >= 300) {
+              const error = new Error('Cashfree order creation failed.');
+              error.response = { status: response.status, data: response.data };
+              throw error;
+            }
+          } catch (error) {
+            // Log full Cashfree response (or error) to make Render logs actionable
+            try {
+              console.error('=== CASHFREE ORDER CREATION ERROR ===', error && error.response ? error.response.data : error);
+            } catch (logErr) {
+              console.error('=== CASHFREE ORDER CREATION ERROR (logging failed) ===', error);
+            }
+            throw error;
+          }
       throw error;
     }
 
