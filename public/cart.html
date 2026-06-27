@@ -718,6 +718,7 @@
       const email = getValue('customer-email');
       const phone = getValue('customer-phone');
       const address = getValue('customer-address');
+      const sanitizedAddress = String(address || '').replace(/\r?\n/g, ' ').trim();
 
       if (!name) {
         showError('Please enter your full name.');
@@ -735,7 +736,7 @@
       }
 
 
-      if (!address) {
+      if (!sanitizedAddress) {
         showError('Please enter your full shipping address.');
         return;
       }
@@ -761,7 +762,7 @@
         customer_name: name,
         customer_email: email,
         customer_phone: phone,
-        customer_address: address,
+        customer_address: sanitizedAddress,
         cart: JSON.parse(localStorage.getItem('drapeCart')) || [],
       };
 

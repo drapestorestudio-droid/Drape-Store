@@ -9,10 +9,10 @@ const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 
 const PORT = Number(process.env.PORT || 5000);
-// Prefer the explicit Render env var names: CASHFREE_CLIENT_ID and CASHFREE_CLIENT_SECRET
-const CASHFREE_CLIENT_ID = (process.env.CASHFREE_CLIENT_ID || '').trim();
-const CASHFREE_CLIENT_SECRET = (process.env.CASHFREE_CLIENT_SECRET || '').trim();
-// Default to live production endpoint unless explicitly overridden by CASHFREE_ENV_URL
+// Accept all known Cashfree credential env vars from Render and fallback gracefully.
+const CASHFREE_CLIENT_ID = (process.env.CASHFREE_CLIENT_ID || process.env.CASHFREE_APP_ID || process.env.CF_APP_ID || '').trim();
+const CASHFREE_CLIENT_SECRET = (process.env.CASHFREE_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY || process.env.CF_SECRET_KEY || '').trim();
+// Default to the live Cashfree production endpoint unless explicitly overridden.
 const CASHFREE_ENV_URL = (process.env.CASHFREE_ENV_URL || 'https://api.cashfree.com/pg').trim();
 const CASHFREE_RETURN_URL = 'https://drapestore.co/cart.html?order_id={order_id}';
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -41,7 +41,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Startup diagnostic: log which Cashfree endpoint is being used and whether client id is present (no secrets logged)
 console.log('[Startup] Cashfree endpoint:', CASHFREE_ENV_URL);
-console.log('[Startup] CASHFREE_CLIENT_ID present:', !!CASHFREE_CLIENT_ID);
+console.log('[Startup] CASHFREE client id source:', process.env.CASHFREE_CLIENT_ID ? 'CASHFREE_CLIENT_ID' : process.env.CASHFREE_APP_ID ? 'CASHFREE_APP_ID' : process.env.CF_APP_ID ? 'CF_APP_ID' : 'none');
+console.log('[Startup] CASHFREE secret key source:', process.env.CASHFREE_CLIENT_SECRET ? 'CASHFREE_CLIENT_SECRET' : process.env.CASHFREE_SECRET_KEY ? 'CASHFREE_SECRET_KEY' : process.env.CF_SECRET_KEY ? 'CF_SECRET_KEY' : 'none');
 
 function formatErrorResponse(error) {
   if (error && error.response) {
@@ -109,7 +110,7 @@ app.post('/api/create-cashfree-order', async function (req, res) {
     const customerName = String(customer_name || '').trim();
     const customerEmail = String(customer_email || '').trim();
     const customerPhone = String((customer_phone || '').replace(/\D/g, '')).trim();
-    const customerAddress = String(customer_address || '').trim();
+    const customerAddress = String(customer_address || '').replace(/[\r\n]+/g, ' ').trim();
     const cart = Array.isArray(incomingCart) ? incomingCart : [];
 
     // Validate presence of required fields. Fail fast to avoid blank rows.
