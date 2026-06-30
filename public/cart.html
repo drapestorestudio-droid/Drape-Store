@@ -800,24 +800,23 @@
 
           // Initialize Cashfree checkout
           if (!cashfree) {
-            showError('Payment system not ready. Please refresh and try again.');
+            document.getElementById('loadingOverlay').classList.remove('active');
             document.getElementById('payButton').disabled = false;
+            showError('Payment system not ready. Please refresh and try again.');
             return;
           }
 
-          cashfree
-            .checkout({
+          try {
+            cashfree.checkout({
               paymentSessionId: data.payment_session_id,
-              returnUrl: 'https://drape-store-backend.onrender.com/success.html',
-            })
-            .then(() => {
-              console.log('Payment completed successfully');
-            })
-            .catch((error) => {
-              console.error('Cashfree checkout error:', error);
-              showError('Payment popup closed. Please try again.');
-              document.getElementById('payButton').disabled = false;
             });
+            console.log('Cashfree checkout initialized');
+          } catch (error) {
+            console.error('Cashfree checkout error:', error);
+            document.getElementById('loadingOverlay').classList.remove('active');
+            document.getElementById('payButton').disabled = false;
+            showError('Payment initialization failed. Please try again.');
+          }
         })
         .catch((error) => {
           console.error('Checkout error:', error);
