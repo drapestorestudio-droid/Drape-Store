@@ -9,11 +9,12 @@ const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 
 const PORT = Number(process.env.PORT || 5000);
-// Accept all known Cashfree credential env vars from Render and fallback gracefully.
-const CASHFREE_CLIENT_ID = (process.env.CASHFREE_CLIENT_ID || process.env.CASHFREE_APP_ID || process.env.CF_APP_ID || '').trim();
-const CASHFREE_CLIENT_SECRET = (process.env.CASHFREE_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY || process.env.CF_SECRET_KEY || '').trim();
-// Default to the live Cashfree production endpoint unless explicitly overridden.
-const CASHFREE_ENV_URL = (process.env.CASHFREE_ENV_URL || 'https://api.cashfree.com/pg').trim();
+// Use only the Render environment variables requested for Cashfree.
+const CASHFREE_CLIENT_ID = String(process.env.CASHFREE_CLIENT_ID || '').trim();
+const CASHFREE_CLIENT_SECRET = String(process.env.CASHFREE_CLIENT_SECRET || '').trim();
+const CASHFREE_ENV = String(process.env.CASHFREE_ENV || '').trim().toUpperCase();
+const CASHFREE_ENV_NAME = CASHFREE_ENV === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
+const CASHFREE_ENV_URL = CASHFREE_ENV_NAME === 'PRODUCTION' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
 const CASHFREE_RETURN_URL = 'https://drapestore.co/cart.html?order_id={order_id}';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -21,7 +22,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const missingEnv = [];
 if (!CASHFREE_CLIENT_ID) missingEnv.push('CASHFREE_CLIENT_ID');
 if (!CASHFREE_CLIENT_SECRET) missingEnv.push('CASHFREE_CLIENT_SECRET');
-if (!CASHFREE_ENV_URL) missingEnv.push('CASHFREE_ENV_URL');
+if (!CASHFREE_ENV) missingEnv.push('CASHFREE_ENV');
 if (!SUPABASE_URL) missingEnv.push('SUPABASE_URL');
 if (!SUPABASE_SERVICE_ROLE_KEY) missingEnv.push('SUPABASE_SERVICE_ROLE_KEY');
 if (missingEnv.length) {
@@ -39,10 +40,11 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Startup diagnostic: log which Cashfree endpoint is being used and whether client id is present (no secrets logged)
+// Startup diagnostic: log which Cashfree endpoint is being used and whether credentials are present (no secrets logged)
+console.log('[Startup] Cashfree mode:', CASHFREE_ENV_NAME);
 console.log('[Startup] Cashfree endpoint:', CASHFREE_ENV_URL);
-console.log('[Startup] CASHFREE client id source:', process.env.CASHFREE_CLIENT_ID ? 'CASHFREE_CLIENT_ID' : process.env.CASHFREE_APP_ID ? 'CASHFREE_APP_ID' : process.env.CF_APP_ID ? 'CF_APP_ID' : 'none');
-console.log('[Startup] CASHFREE secret key source:', process.env.CASHFREE_CLIENT_SECRET ? 'CASHFREE_CLIENT_SECRET' : process.env.CASHFREE_SECRET_KEY ? 'CASHFREE_SECRET_KEY' : process.env.CF_SECRET_KEY ? 'CF_SECRET_KEY' : 'none');
+console.log('[Startup] CASHFREE client id present:', !!CASHFREE_CLIENT_ID);
+console.log('[Startup] CASHFREE secret key present:', !!CASHFREE_CLIENT_SECRET);
 
 function formatErrorResponse(error) {
   if (error && error.response) {
@@ -98,8 +100,8 @@ app.get('/health', function (_req, res) {
 
 app.post('/api/create-cashfree-order', async function (req, res) {
   console.log("=== RENDER LIVE BACKEND CHECK ===");
-  console.log("App ID:", process.env.CASHFREE_APP_ID || process.env.CASHFREE_CLIENT_ID || "MISSING");
-  console.log("Secret Key Present:", !!(process.env.CASHFREE_SECRET_KEY || process.env.CASHFREE_CLIENT_SECRET));
+  console.log("App ID:", CASHFREE_CLIENT_ID || "MISSING");
+  console.log("Secret Key Present:", !!CASHFREE_CLIENT_SECRET);
 
   try {
     // 1. Destructure required fields from incoming payload
@@ -197,12 +199,13 @@ app.post('/api/create-cashfree-order', async function (req, res) {
 
     console.log('Sending to Cashfree:', JSON.stringify(payload, null, 2));
 
-    // Ensure SDK (if present) is set to PRODUCTION explicitly to avoid sandbox mode
+    // Ensure the SDK (if present) uses the requested Cashfree environment.
     try {
       const Cashfree = require('cashfree-sdk');
-      if (Cashfree && Cashfree.Environment && Cashfree.Environment.PRODUCTION) {
-        Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
-        console.log('[Startup] Cashfree SDK detected and initialized to PRODUCTION mode.');
+      if (Cashfree && Cashfree.Environment) {
+        const targetEnvironment = CASHFREE_ENV === 'PRODUCTION' ? Cashfree.Environment.PRODUCTION : Cashfree.Environment.SANDBOX;
+        Cashfree.XEnvironment = targetEnvironment;
+        console.log('[Startup] Cashfree SDK detected and initialized to', CASHFREE_ENV_NAME, 'mode.');
       }
     } catch (err) {
       // SDK not present — continue using direct HTTP calls
@@ -212,8 +215,8 @@ app.post('/api/create-cashfree-order', async function (req, res) {
 
     console.log('🔍 === CASHFREE DEBUG START ===');
     console.log('📦 URL/Environment being hit:', cashfreeUrl);
-    console.log('🆔 Client/App ID Value:', process.env.CASHFREE_APP_ID || process.env.CASHFREE_CLIENT_ID || process.env.CF_APP_ID || 'UNDEFINED');
-    console.log('🔑 Secret Key Length:', (process.env.CASHFREE_SECRET_KEY || process.env.CASHFREE_CLIENT_SECRET || process.env.CF_SECRET_KEY || '').length);
+    console.log('🆔 Client/App ID Value:', CASHFREE_CLIENT_ID || 'UNDEFINED');
+    console.log('🔑 Secret Key Length:', CASHFREE_CLIENT_SECRET.length);
     console.log('🔍 === CASHFREE DEBUG END ===');
 
     let response;
