@@ -97,6 +97,10 @@ app.get('/health', function (_req, res) {
 });
 
 app.post('/api/create-cashfree-order', async function (req, res) {
+  console.log("=== RENDER LIVE BACKEND CHECK ===");
+  console.log("App ID:", process.env.CASHFREE_APP_ID || process.env.CASHFREE_CLIENT_ID || "MISSING");
+  console.log("Secret Key Present:", !!(process.env.CASHFREE_SECRET_KEY || process.env.CASHFREE_CLIENT_SECRET));
+
   try {
     // 1. Destructure required fields from incoming payload
     const {
@@ -205,50 +209,38 @@ app.post('/api/create-cashfree-order', async function (req, res) {
     }
 
     const cashfreeUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders';
-    const response = await axios.post(cashfreeUrl, payload, {
-      headers: {
-        'x-client-id': CASHFREE_CLIENT_ID,
-        'x-client-secret': CASHFREE_CLIENT_SECRET,
-        'x-api-version': '2023-08-01',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      timeout: 15000,
-      validateStatus: () => true,
-    });
 
-    if (response.status < 200 || response.status >= 300) {
-          console.log('Sending to Cashfree:', JSON.stringify(payload, null, 2));
-      error.response = { status: response.status, data: response.data };
-          const cashfreeUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders';
-          let response;
-          try {
-            response = await axios.post(cashfreeUrl, payload, {
-              headers: {
-                'x-client-id': CASHFREE_CLIENT_ID,
-                'x-client-secret': CASHFREE_CLIENT_SECRET,
-                'x-api-version': '2023-08-01',
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-              },
-              timeout: 15000,
-              validateStatus: () => true,
-            });
+    console.log('🔍 === CASHFREE DEBUG START ===');
+    console.log('📦 URL/Environment being hit:', cashfreeUrl);
+    console.log('🆔 Client/App ID Value:', process.env.CASHFREE_APP_ID || process.env.CASHFREE_CLIENT_ID || process.env.CF_APP_ID || 'UNDEFINED');
+    console.log('🔑 Secret Key Length:', (process.env.CASHFREE_SECRET_KEY || process.env.CASHFREE_CLIENT_SECRET || process.env.CF_SECRET_KEY || '').length);
+    console.log('🔍 === CASHFREE DEBUG END ===');
 
-            if (response.status < 200 || response.status >= 300) {
-              const error = new Error('Cashfree order creation failed.');
-              error.response = { status: response.status, data: response.data };
-              throw error;
-            }
-          } catch (error) {
-            // Log full Cashfree response (or error) to make Render logs actionable
-            try {
-              console.error('=== CASHFREE ORDER CREATION ERROR ===', error && error.response ? error.response.data : error);
-            } catch (logErr) {
-              console.error('=== CASHFREE ORDER CREATION ERROR (logging failed) ===', error);
-            }
-            throw error;
-          }
+    let response;
+    try {
+      response = await axios.post(cashfreeUrl, payload, {
+        headers: {
+          'x-client-id': CASHFREE_CLIENT_ID,
+          'x-client-secret': CASHFREE_CLIENT_SECRET,
+          'x-api-version': '2023-08-01',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        timeout: 15000,
+        validateStatus: () => true,
+      });
+
+      if (response.status < 200 || response.status >= 300) {
+        const error = new Error('Cashfree order creation failed.');
+        error.response = { status: response.status, data: response.data };
+        throw error;
+      }
+    } catch (error) {
+      try {
+        console.error('=== CASHFREE ORDER CREATION ERROR ===', error && error.response ? error.response.data : error);
+      } catch (logErr) {
+        console.error('=== CASHFREE ORDER CREATION ERROR (logging failed) ===', error);
+      }
       throw error;
     }
 
