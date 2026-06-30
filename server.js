@@ -15,7 +15,7 @@ const CASHFREE_CLIENT_SECRET = String(process.env.CASHFREE_CLIENT_SECRET || '').
 const CASHFREE_ENV = String(process.env.CASHFREE_ENV || '').trim().toUpperCase();
 const CASHFREE_ENV_NAME = CASHFREE_ENV === 'PRODUCTION' ? 'PRODUCTION' : 'PRODUCTION';
 const CASHFREE_ENV_URL = 'https://api.cashfree.com/pg';
-const CASHFREE_RETURN_URL = 'https://drape-store-backend.onrender.com/success.html';
+const CASHFREE_RETURN_URL = 'https://drapestore.co/success.html';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
