@@ -315,6 +315,7 @@ app.post('/api/create-cashfree-order', async function (req, res) {
 
     return res.status(200).json(respBody);
   } catch (error) {
+    console.error("❌ CRITICAL CASHFREE API ERROR:", error.response ? error.response.data : error.message);
     const formatted = formatErrorResponse(error);
     return res.status(formatted.status).json(formatted.body);
   }
