@@ -43,7 +43,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Startup diagnostic: log which Cashfree endpoint is being used and whether credentials are present (no secrets logged)
-console.log('[Startup] Cashfree mode:', CASHFREE_ENV_NAME);
+console.log('[Startup] Cashfree mode:', CASHFREE_ENV);
 console.log('[Startup] Cashfree endpoint:', CASHFREE_BASE_URL);
 console.log('[Startup] CASHFREE app id present:', !!CASHFREE_APP_ID);
 console.log('[Startup] CASHFREE secret key present:', !!CASHFREE_SECRET_KEY);
