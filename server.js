@@ -178,16 +178,34 @@ app.post('/api/create-cashfree-order', async function (req, res) {
     const supabaseOrderId = String(orderRow.id);
     const cfOrderId = `drape_${supabaseOrderId}_${Date.now()}`;
 
-    // Use trimmed request phone as customer_id and customer_phone (required by Cashfree)
-    const phoneTrim = String(customer_phone || '').trim() || String(customerPhone || '').trim();
-    const phoneForCashfree = phoneTrim;
+    // SANITIZATION & VALIDATION
+    // 1) Amount sanitization: enforce two-decimal float
+    const sanitizedAmount = Number(parseFloat(totalAmount || 0).toFixed(2));
 
-    // Prepare Cashfree order payload exactly as required
+    // 2) Phone sanitization: strip non-numeric, remove country prefix if present
+    let phoneDigits = String(customer_phone || customerPhone || '').replace(/\D/g, '');
+    if (phoneDigits.startsWith('91') && phoneDigits.length > 10) {
+      phoneDigits = phoneDigits.slice(phoneDigits.length - 10);
+    }
+    // Ensure at least the last 10 digits are used if available
+    if (phoneDigits.length > 10) {
+      phoneDigits = phoneDigits.slice(-10);
+    }
+
+    // 3) Customer ID validation: allow only alphanumeric, hyphens, underscores
+    let customerId = String(phoneDigits || '').trim();
+    if (!customerId || !/^[A-Za-z0-9_-]+$/.test(customerId)) {
+      customerId = `cust_${Date.now()}`;
+    }
+
+    const phoneForCashfree = phoneDigits;
+
+    // Prepare Cashfree order payload exactly as required (use sanitized values)
     const payload = {
-      order_amount: totalAmount,
+      order_amount: sanitizedAmount,
       order_currency: 'INR',
       customer_details: {
-        customer_id: phoneForCashfree,
+        customer_id: customerId,
         customer_phone: phoneForCashfree,
         customer_name: customerName,
         customer_email: customerEmail,
@@ -243,7 +261,7 @@ app.post('/api/create-cashfree-order', async function (req, res) {
       }
     } catch (error) {
       try {
-        console.error('=== CASHFREE ORDER CREATION ERROR ===', error && error.response ? error.response.data : error);
+        console.error("❌ LIVE CASHFREE REJECTION:", error.response ? error.response.data : error.message);
       } catch (logErr) {
         console.error('=== CASHFREE ORDER CREATION ERROR (logging failed) ===', error);
       }
