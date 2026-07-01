@@ -5,7 +5,6 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 
 const PORT = Number(process.env.PORT || 5000);
@@ -98,49 +97,32 @@ app.get('/health', function (_req, res) {
   res.status(200).json({ ok: true });
 });
 
-app.post('/api/create-cashfree-order', async function (req, res) {
+app.post('/api/create-cashfree-order', async (req, res) => {
   try {
-    const {
-      customer_name,
-      customer_email,
-      customer_phone,
-      grand_total,
-      order_id,
-    } = req.body || {};
+    const { customer_name, customer_email, customer_phone, grand_total, order_id } = req.body || {};
 
-    const customerName = String(customer_name || '').trim();
-    const customerEmail = String(customer_email || '').trim();
-    const customerPhone = String(customer_phone || '').replace(/\D/g, '').trim();
-    const amount = Number(grand_total || 0);
-    const orderId = String(order_id || '').trim();
-
-    const missing = [];
-    if (!customerName) missing.push('customer_name');
-    if (!customerEmail) missing.push('customer_email');
-    if (!customerPhone) missing.push('customer_phone');
-    if (!Number.isFinite(amount) || amount <= 0) missing.push('grand_total');
-    if (!orderId) missing.push('order_id');
-
-    if (missing.length) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required fields: ' + missing.join(', '),
-      });
+    if (!customer_email || !customer_phone || !grand_total) {
+      return res.status(400).json({ success: false, message: 'Missing required fields in request body.' });
     }
 
-    const payload = {
-      order_amount: Number(amount.toFixed(2)),
+    const cleanPhone = String(customer_phone).replace(/[^0-9]/g, '');
+    const cleanCustomerId = String(customer_email).toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const cleanAmount = Number(parseFloat(grand_total).toFixed(2));
+    const safeOrderId = order_id || `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+    const requestData = {
+      order_id: safeOrderId,
+      order_amount: cleanAmount,
       order_currency: 'INR',
       customer_details: {
-        customer_id: customerPhone || `cust_${Date.now()}`,
-        customer_phone: customerPhone,
-        customer_name: customerName,
-        customer_email: customerEmail,
+        customer_id: cleanCustomerId,
+        customer_name: customer_name || 'Customer',
+        customer_email: customer_email,
+        customer_phone: cleanPhone,
       },
       order_meta: {
-        return_url: CASHFREE_RETURN_URL,
+        return_url: 'https://drapestore.co/success.html',
       },
-      order_id: orderId,
     };
 
     const response = await fetch(`${CASHFREE_BASE_URL}/orders`, {
@@ -149,35 +131,23 @@ app.post('/api/create-cashfree-order', async function (req, res) {
         'x-client-id': CASHFREE_APP_ID,
         'x-client-secret': CASHFREE_SECRET_KEY,
         'x-api-version': '2023-08-01',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestData),
     });
 
-    let data = null;
-    try {
-      data = await response.json();
-    } catch (error) {
-      data = await response.text().catch(() => null);
-    }
+    const data = await response.json();
 
     if (!response.ok) {
-      return res.status(response.status).json({
-        success: false,
-        cashfreeError: data,
-      });
+      console.error('Cashfree Rejected Payload:', data);
+      return res.status(response.status).json({ success: false, errorSource: 'Cashfree API', cashfreeRawError: data });
     }
 
-    return res.status(200).json({
-      success: true,
-      cashfree: data,
-    });
+    return res.status(200).json({ success: true, payment_session_id: data.payment_session_id });
   } catch (error) {
-    console.error('Cashfree order creation failed:', error);
-    return res.status(500).json({
-      success: false,
-      message: error && error.message ? error.message : 'Unexpected server error.',
-    });
+    console.error('Server Catch Error:', error);
+    return res.status(500).json({ success: false, message: 'System catch error', error: error.message });
   }
 });
 
@@ -201,25 +171,26 @@ async function verifyCashfreePayment(req, res, rawOrderId) {
 
     const cleanClientId = CASHFREE_APP_ID;
     const cleanClientSecret = CASHFREE_SECRET_KEY;
-    const statusUrl = String(CASHFREE_BASE_URL || '').replace(/\/$/, '') + '/orders/' + encodeURIComponent(orderId);
-    const statusResponse = await axios.get(statusUrl, {
+    const statusUrl = `${CASHFREE_BASE_URL}/orders/${encodeURIComponent(orderId)}`;
+    const statusResponse = await fetch(statusUrl, {
+      method: 'GET',
       headers: {
         'x-client-id': cleanClientId,
         'x-client-secret': cleanClientSecret,
         'x-api-version': '2023-08-01',
         'Accept': 'application/json',
       },
-      timeout: 15000,
-      validateStatus: () => true,
     });
 
-    if (statusResponse.status < 200 || statusResponse.status >= 300) {
+    const statusData = await statusResponse.json().catch(() => null);
+
+    if (!statusResponse.ok) {
       const error = new Error('Unable to verify Cashfree payment status.');
-      error.response = { status: statusResponse.status, data: statusResponse.data };
+      error.response = { status: statusResponse.status, data: statusData };
       throw error;
     }
 
-    const cashfreeStatus = normalizeCashfreeStatus(statusResponse.data || {});
+    const cashfreeStatus = normalizeCashfreeStatus(statusData || {});
     const isPaid = ['PAID', 'SUCCESS', 'COMPLETED', 'SUCCESSFUL', 'APPROVED'].includes(cashfreeStatus);
 
     if (!isPaid) {
@@ -232,11 +203,11 @@ async function verifyCashfreePayment(req, res, rawOrderId) {
     }
 
     const cfPaymentId = String(
-      statusResponse.data && (
-        statusResponse.data.cf_payment_id ||
-        statusResponse.data.cfPaymentId ||
-        statusResponse.data.payment_id ||
-        statusResponse.data.paymentId ||
+      statusData && (
+        statusData.cf_payment_id ||
+        statusData.cfPaymentId ||
+        statusData.payment_id ||
+        statusData.paymentId ||
         ''
       )
     ).trim() || null;
