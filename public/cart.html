@@ -699,6 +699,20 @@
       document.getElementById('delivery-charge').textContent = deliveryText;
       document.getElementById('total-amount').textContent = '₹' + grandTotal.toLocaleString('en-IN');
 
+      // Ensure a dedicated element exists for the live numeric grand total
+      // Some integrations expect `grand-total-amount` id — create/update it here.
+      (function() {
+        let grandEl = document.getElementById('grand-total-amount');
+        if (!grandEl) {
+          grandEl = document.createElement('span');
+          grandEl.id = 'grand-total-amount';
+          grandEl.style.display = 'none';
+          const parent = document.querySelector('.summary-total');
+          if (parent) parent.appendChild(grandEl);
+        }
+        grandEl.textContent = '₹' + grandTotal.toLocaleString('en-IN');
+      })();
+
       // Store delivery charge for checkout
       window.shippingCharge = deliveryCharge;
     }
@@ -783,7 +797,7 @@
             customer_name: document.getElementById('customer-name')?.value || '',
             customer_email: document.getElementById('customer-email')?.value || '',
             customer_phone: document.getElementById('customer-phone')?.value || '',
-            grand_total: numericTotal
+            grand_total: parseFloat(document.getElementById('grand-total-amount')?.innerText.replace(/[^0-9.]/g, '')) || 0
           }),
         });
 
