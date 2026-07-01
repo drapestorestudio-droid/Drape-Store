@@ -481,6 +481,12 @@ app.get('*', function (_req, res) {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.use((err, req, res, next) => {
+  console.error('🚨 GLOBAL SERVER ERROR CAUGHT:');
+  console.error(err.stack || err);
+  res.status(500).json({ success: false, error: err.message });
+});
+
 app.listen(PORT, function () {
   console.log('DRAPE backend running on http://localhost:' + PORT);
 });
