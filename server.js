@@ -13,9 +13,7 @@ const PORT = Number(process.env.PORT || 5000);
 const CASHFREE_APP_ID = String(process.env.CASHFREE_APP_ID || '').trim();
 const CASHFREE_SECRET_KEY = String(process.env.CASHFREE_SECRET_KEY || '').trim();
 const CASHFREE_ENV = String(process.env.CASHFREE_ENV || '').trim().toUpperCase();
-const CASHFREE_BASE_URL = CASHFREE_ENV === 'PRODUCTION' 
-  ? 'https://api.cashfree.com/pg' 
-  : 'https://sandbox.cashfree.com/pg';
+const CASHFREE_BASE_URL = CASHFREE_ENV === 'PRODUCTION' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
 const CASHFREE_RETURN_URL = String(process.env.CASHFREE_RETURN_URL || '').trim();
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -101,33 +99,27 @@ app.get('/health', function (_req, res) {
 });
 
 app.post('/api/create-cashfree-order', async function (req, res) {
-  console.log("=== RENDER LIVE BACKEND CHECK ===");
-  console.log("App ID:", CASHFREE_APP_ID || "MISSING");
-  console.log("Secret Key Present:", !!CASHFREE_SECRET_KEY);
-
   try {
-    // 1. Destructure required fields from incoming payload
     const {
       customer_name,
       customer_email,
       customer_phone,
-      customer_address,
-      cart: incomingCart,
+      grand_total,
+      order_id,
     } = req.body || {};
 
     const customerName = String(customer_name || '').trim();
     const customerEmail = String(customer_email || '').trim();
-    const customerPhone = String((customer_phone || '').replace(/\D/g, '')).trim();
-    const customerAddress = String(customer_address || '').replace(/[\r\n]+/g, ' ').trim();
-    const cart = Array.isArray(incomingCart) ? incomingCart : [];
+    const customerPhone = String(customer_phone || '').replace(/\D/g, '').trim();
+    const amount = Number(grand_total || 0);
+    const orderId = String(order_id || '').trim();
 
-    // Validate presence of required fields. Fail fast to avoid blank rows.
     const missing = [];
     if (!customerName) missing.push('customer_name');
     if (!customerEmail) missing.push('customer_email');
     if (!customerPhone) missing.push('customer_phone');
-    if (!customerAddress) missing.push('customer_address');
-    if (!cart || cart.length === 0) missing.push('cart');
+    if (!Number.isFinite(amount) || amount <= 0) missing.push('grand_total');
+    if (!orderId) missing.push('order_id');
 
     if (missing.length) {
       return res.status(400).json({
@@ -136,194 +128,56 @@ app.post('/api/create-cashfree-order', async function (req, res) {
       });
     }
 
-    // 2. Calculate total amount server-side (security best practice)
-    let totalAmount = 0;
-    for (const item of cart) {
-      const price = Number(item.product && (item.product.price || item.price)) || 0;
-      const quantity = Number(item.quantity) || 1;
-      if (price <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid price for item: ${item.product && item.product.name}`,
-        });
-      }
-      totalAmount += price * quantity;
-    }
-
-    if (totalAmount <= 0) {
-      return res.status(400).json({ success: false, message: 'Cart total amount must be greater than zero.' });
-    }
-
-    // 2. SUPABASE LOGGING (insert full order BEFORE calling Cashfree)
-    const { data: orderRow, error: insertError } = await supabaseAdmin
-      .from('orders')
-      .insert([{
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        customer_email: customerEmail,
-        customer_address: customerAddress,
-        total_amount: totalAmount,
-        cart: cart,
-        cf_order_id: null,
-        payment_status: 'PENDING',
-      }])
-      .select('id')
-      .single();
-
-    if (insertError || !orderRow || !orderRow.id) {
-      return res.status(500).json({
-        success: false,
-        message: (insertError && insertError.message) || 'Unable to create order in Supabase.',
-      });
-    }
-
-    const supabaseOrderId = String(orderRow.id);
-    const cfOrderId = `drape_${supabaseOrderId}_${Date.now()}`;
-
-    // SANITIZATION & VALIDATION
-    // 1) Amount sanitization: enforce two-decimal float
-    const sanitizedAmount = Number(parseFloat(totalAmount || 0).toFixed(2));
-
-    // 2) Phone sanitization: strip non-numeric, remove country prefix if present
-    let phoneDigits = String(customer_phone || customerPhone || '').replace(/\D/g, '');
-    if (phoneDigits.startsWith('91') && phoneDigits.length > 10) {
-      phoneDigits = phoneDigits.slice(phoneDigits.length - 10);
-    }
-    // Ensure at least the last 10 digits are used if available
-    if (phoneDigits.length > 10) {
-      phoneDigits = phoneDigits.slice(-10);
-    }
-
-    // 3) Customer ID validation: allow only alphanumeric, hyphens, underscores
-    let customerId = String(phoneDigits || '').trim();
-    if (!customerId || !/^[A-Za-z0-9_-]+$/.test(customerId)) {
-      customerId = `cust_${Date.now()}`;
-    }
-
-    const phoneForCashfree = phoneDigits;
-
-    // Prepare Cashfree order payload exactly as required (use sanitized values)
     const payload = {
-      order_amount: sanitizedAmount,
+      order_amount: Number(amount.toFixed(2)),
       order_currency: 'INR',
       customer_details: {
-        customer_id: customerId,
-        customer_phone: phoneForCashfree,
+        customer_id: customerPhone || `cust_${Date.now()}`,
+        customer_phone: customerPhone,
         customer_name: customerName,
         customer_email: customerEmail,
       },
       order_meta: {
         return_url: CASHFREE_RETURN_URL,
       },
+      order_id: orderId,
     };
 
-    console.log('Sending to Cashfree:', JSON.stringify(payload, null, 2));
+    const response = await fetch(`${CASHFREE_BASE_URL}/orders`, {
+      method: 'POST',
+      headers: {
+        'x-client-id': CASHFREE_APP_ID,
+        'x-client-secret': CASHFREE_SECRET_KEY,
+        'x-api-version': '2023-08-01',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload),
+    });
 
-    const cleanClientId = CASHFREE_APP_ID;
-    const cleanClientSecret = CASHFREE_SECRET_KEY;
-    const cashfreeUrl = `${CASHFREE_BASE_URL}/orders`;
-
-    console.log('🔍 === CASHFREE DEBUG START ===');
-    console.log('📦 URL/Environment being hit:', cashfreeUrl);
-    console.log('🆔 Client/App ID Present:', !!cleanClientId);
-    console.log('🔑 Client Secret Present:', !!cleanClientSecret);
-    console.log('🔍 === CASHFREE DEBUG END ===');
-
-    let response;
+    let data = null;
     try {
-      response = await axios.post(cashfreeUrl, payload, {
-        headers: {
-          'x-client-id': cleanClientId,
-          'x-client-secret': cleanClientSecret,
-          'x-api-version': '2023-08-01',
-          'Content-Type': 'application/json'
-        },
-        timeout: 15000,
-        validateStatus: () => true,
-      });
-
-      if (response.status < 200 || response.status >= 300) {
-        const error = new Error('Cashfree order creation failed.');
-        error.response = { status: response.status, data: response.data };
-        throw error;
-      }
+      data = await response.json();
     } catch (error) {
-      try {
-        console.error("❌ LIVE CASHFREE REJECTION:", error.response ? error.response.data : error.message);
-      } catch (logErr) {
-        console.error('=== CASHFREE ORDER CREATION ERROR (logging failed) ===', error);
-      }
-      throw error;
+      data = await response.text().catch(() => null);
     }
 
-    // Cashfree may return a payment link, order token, or payment_session_id depending on API version
-    const paymentLink = response.data && (response.data.payment_link || response.data.paymentUrl || response.data.paymentLink);
-    const orderToken = response.data && (response.data.order_token || response.data.orderToken || response.data.data && response.data.data.order_token);
-    const paymentSessionId = response.data && (response.data.payment_session_id || response.data.paymentSessionId);
-
-    if (!paymentLink && !orderToken && !paymentSessionId) {
-      return res.status(502).json({
+    if (!response.ok) {
+      return res.status(response.status).json({
         success: false,
-        message: 'Cashfree response did not include a payment link, order token, or payment_session_id.',
-        cashfree: response.data,
+        cashfreeError: data,
       });
     }
 
-    // Update master order with Cashfree order ID
-    const { error: updateError } = await supabaseAdmin
-      .from('orders')
-      .update({
-        cf_order_id: cfOrderId,
-      })
-      .eq('id', supabaseOrderId);
-
-    if (updateError) {
-      return res.status(500).json({
-        success: false,
-        message: 'Order created but could not update with Cashfree order ID.',
-      });
-    }
-
-    // Prepare order_items for bulk insert
-    const orderItems = cart.map((item) => ({
-      order_id: supabaseOrderId,
-      product_id: String(item.product && item.product.id || ''),
-      product_name: String(item.product && item.product.name || ''),
-      product_price: Number(item.product && item.product.price) || 0,
-      quantity: Number(item.quantity) || 1,
-      size: String(item.size || ''),
-      color: String(item.color || 'N/A'),
-    }));
-
-    // Insert individual order items
-    const { error: itemsInsertError } = await supabaseAdmin
-      .from('order_items')
-      .insert(orderItems);
-
-    if (itemsInsertError) {
-      console.error('[Order Items Insert Error]', itemsInsertError);
-      return res.status(500).json({
-        success: false,
-        message: 'Order created but could not save individual items.',
-      });
-    }
-
-    // Return success response with payment details (include whichever Cashfree returned)
-    const respBody = {
+    return res.status(200).json({
       success: true,
-      cf_order_id: cfOrderId,
-      supabase_order_id: supabaseOrderId,
-      cashfree: response.data,
-    };
-    if (paymentLink) respBody.payment_link = paymentLink;
-    if (orderToken) respBody.order_token = orderToken;
-    if (paymentSessionId) respBody.payment_session_id = paymentSessionId;
-
-    return res.status(200).json(respBody);
+      cashfree: data,
+    });
   } catch (error) {
-    console.error("❌ CRITICAL CASHFREE API ERROR:", error.response ? error.response.data : error.message);
-    const formatted = formatErrorResponse(error);
-    return res.status(formatted.status).json(formatted.body);
+    console.error('Cashfree order creation failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: error && error.message ? error.message : 'Unexpected server error.',
+    });
   }
 });
 
