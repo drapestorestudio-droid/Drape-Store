@@ -29,7 +29,8 @@ if (missingEnv.length) {
   process.exit(1);
 }
 
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabaseAdmin = supabase;
 
 const app = express();
 
@@ -95,6 +96,26 @@ function normalizeCashfreeStatus(payload) {
 
 app.get('/health', function (_req, res) {
   res.status(200).json({ ok: true });
+});
+
+app.post('/webhook/cashfree', async (req, res) => {
+  const { order_id, order_status } = req.body || {};
+
+  if (order_status === 'PAID') {
+    const { error } = await supabase
+      .from('orders')
+      .update({ payment_status: 'success' })
+      .eq('cf_order_id', order_id);
+
+    if (error) {
+      console.error('Supabase Update Error:', error);
+      return res.status(500).send('Database Update Failed');
+    }
+
+    return res.status(200).send('Status Updated to Success');
+  }
+
+  return res.status(200).send('Event received');
 });
 
 app.post('/api/create-cashfree-order', async (req, res) => {
