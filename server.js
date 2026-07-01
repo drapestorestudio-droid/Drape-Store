@@ -34,10 +34,10 @@ const supabaseAdmin = supabase;
 
 const app = express();
 
-app.use(cors({ origin: true, credentials: false }));
-app.options('*', cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cors({ origin: true, credentials: false }));
+app.options('*', cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Startup diagnostic: log which Cashfree endpoint is being used and whether credentials are present (no secrets logged)
@@ -99,12 +99,10 @@ app.get('/health', function (_req, res) {
 });
 
 app.post('/webhook/cashfree', async (req, res) => {
-    // Cashfree sends the event type in req.body.data.event_type 
-    // or sometimes just event_type depending on the version.
-    const eventType = req.body.data?.event_type || req.body.event_type;
-    const orderId = req.body.data?.order?.order_id || req.body.order_id;
+    const eventType = req.body.data?.event_type;
+    const orderId = req.body.data?.order?.order_id;
 
-    if (eventType === 'PAYMENT_SUCCESS_WEBHOOK' || eventType === 'SUCCESS_PAYMENT') {
+    if (eventType === 'SUCCESS_PAYMENT') {
         const { error } = await supabase
             .from('orders')
             .update({ payment_status: 'success' })
@@ -116,7 +114,8 @@ app.post('/webhook/cashfree', async (req, res) => {
         }
         return res.status(200).send('Status Updated to Success');
     }
-    res.status(200).send('Event received');
+
+    return res.status(200).send('Event ignored');
 });
 
 app.post('/api/create-cashfree-order', async (req, res) => {
