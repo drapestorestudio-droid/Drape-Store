@@ -574,6 +574,11 @@
           <div class="form-group">
             <label for="customer-address">Full Shipping Address</label>
             <textarea id="customer-address" placeholder="Flat/House No., Street, Area, City, State" autocomplete="street-address" required></textarea>
+
+            <div class="input-group">
+              <label>PINCODE</label>
+              <input type="text" id="pincode" placeholder="Enter 6-digit Pincode" pattern="[0-9]{6}" maxlength="6" required />
+            </div>
           </div>
 
           <button class="pay-btn" id="payButton" onclick="initiateCheckout()">Pay Now</button>
@@ -775,10 +780,14 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            customer_name: 'Nishant',
-            customer_email: 'worksofnn@gmail.com',
-            customer_phone: '8146757142',
-            grand_total: 959
+            customer_name: document.getElementById('name')?.value || document.getElementById('fullname')?.value || '',
+            customer_email: document.getElementById('email')?.value || '',
+            customer_phone: document.getElementById('phone')?.value || '',
+            customer_address: document.getElementById('address')?.value || '',
+            shipping_address: document.getElementById('address')?.value || '',
+            pincode: document.getElementById('pincode')?.value || '',
+            cart: typeof cart !== 'undefined' ? cart : JSON.parse(localStorage.getItem('cart') || '[]'),
+            grand_total: typeof grandTotal !== 'undefined' ? grandTotal : parseInt(document.getElementById('grand-total-amount')?.innerText.replace(/[^0-9]/g, '')) || 0
           }),
         });
 
