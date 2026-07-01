@@ -13,9 +13,11 @@ const PORT = Number(process.env.PORT || 5000);
 const CASHFREE_APP_ID = String(process.env.CASHFREE_APP_ID || '').trim();
 const CASHFREE_SECRET_KEY = String(process.env.CASHFREE_SECRET_KEY || '').trim();
 const CASHFREE_ENV = String(process.env.CASHFREE_ENV || '').trim().toUpperCase();
-const CASHFREE_ENV_NAME = CASHFREE_ENV === 'PRODUCTION' ? 'PRODUCTION' : 'PRODUCTION';
-const CASHFREE_ENV_URL = 'https://api.cashfree.com/pg';
-const CASHFREE_RETURN_URL = 'https://drapestore.co/success.html';
+const CASHFREE_ENV_NAME = CASHFREE_ENV === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
+const CASHFREE_BASE_URL = CASHFREE_ENV === 'PRODUCTION'
+  ? 'https://api.cashfree.com/pg'
+  : 'https://sandbox.cashfree.com/pg';
+const CASHFREE_RETURN_URL = String(process.env.CASHFREE_RETURN_URL || '').trim();
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -23,6 +25,7 @@ const missingEnv = [];
 if (!CASHFREE_APP_ID) missingEnv.push('CASHFREE_APP_ID');
 if (!CASHFREE_SECRET_KEY) missingEnv.push('CASHFREE_SECRET_KEY');
 if (!CASHFREE_ENV) missingEnv.push('CASHFREE_ENV');
+if (!CASHFREE_RETURN_URL) missingEnv.push('CASHFREE_RETURN_URL');
 if (!SUPABASE_URL) missingEnv.push('SUPABASE_URL');
 if (!SUPABASE_SERVICE_ROLE_KEY) missingEnv.push('SUPABASE_SERVICE_ROLE_KEY');
 if (missingEnv.length) {
@@ -42,7 +45,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Startup diagnostic: log which Cashfree endpoint is being used and whether credentials are present (no secrets logged)
 console.log('[Startup] Cashfree mode:', CASHFREE_ENV_NAME);
-console.log('[Startup] Cashfree endpoint:', CASHFREE_ENV_URL);
+console.log('[Startup] Cashfree endpoint:', CASHFREE_BASE_URL);
 console.log('[Startup] CASHFREE app id present:', !!CASHFREE_APP_ID);
 console.log('[Startup] CASHFREE secret key present:', !!CASHFREE_SECRET_KEY);
 
@@ -217,27 +220,14 @@ app.post('/api/create-cashfree-order', async function (req, res) {
 
     console.log('Sending to Cashfree:', JSON.stringify(payload, null, 2));
 
-    const cleanClientId = String(process.env.CASHFREE_APP_ID || '').trim();
-    const cleanClientSecret = String(process.env.CASHFREE_SECRET_KEY || '').trim();
-
-    // Ensure the SDK (if present) uses the requested Cashfree environment.
-    try {
-      const Cashfree = require('cashfree-sdk');
-      if (Cashfree && Cashfree.Environment) {
-        const targetEnvironment = CASHFREE_ENV === 'PRODUCTION' ? Cashfree.Environment.PRODUCTION : Cashfree.Environment.PRODUCTION;
-        Cashfree.XEnvironment = targetEnvironment;
-        console.log('[Startup] Cashfree SDK detected and initialized to', CASHFREE_ENV_NAME, 'mode.');
-      }
-    } catch (err) {
-      // SDK not present — continue using direct HTTP calls
-    }
-
-    const cashfreeUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders';
+    const cleanClientId = CASHFREE_APP_ID;
+    const cleanClientSecret = CASHFREE_SECRET_KEY;
+    const cashfreeUrl = String(CASHFREE_BASE_URL || '').replace(/\/$/, '') + '/orders';
 
     console.log('🔍 === CASHFREE DEBUG START ===');
     console.log('📦 URL/Environment being hit:', cashfreeUrl);
-    console.log('🆔 Client/App ID Value:', cleanClientId || 'UNDEFINED');
-    console.log('🔑 Secret Key Length:', cleanClientSecret.length);
+    console.log('🆔 Client/App ID Present:', !!cleanClientId);
+    console.log('🔑 Client Secret Present:', !!cleanClientSecret);
     console.log('🔍 === CASHFREE DEBUG END ===');
 
     let response;
@@ -357,9 +347,9 @@ async function verifyCashfreePayment(req, res, rawOrderId) {
       });
     }
 
-    const cleanClientId = String(process.env.CASHFREE_APP_ID || '').trim();
-    const cleanClientSecret = String(process.env.CASHFREE_SECRET_KEY || '').trim();
-    const statusUrl = String(CASHFREE_ENV_URL || '').replace(/\/$/, '') + '/orders/' + encodeURIComponent(orderId);
+    const cleanClientId = CASHFREE_APP_ID;
+    const cleanClientSecret = CASHFREE_SECRET_KEY;
+    const statusUrl = String(CASHFREE_BASE_URL || '').replace(/\/$/, '') + '/orders/' + encodeURIComponent(orderId);
     const statusResponse = await axios.get(statusUrl, {
       headers: {
         'x-client-id': cleanClientId,
