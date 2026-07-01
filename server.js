@@ -99,23 +99,24 @@ app.get('/health', function (_req, res) {
 });
 
 app.post('/webhook/cashfree', async (req, res) => {
-  const { order_id, order_status } = req.body || {};
+    // Cashfree sends the event type in req.body.data.event_type 
+    // or sometimes just event_type depending on the version.
+    const eventType = req.body.data?.event_type || req.body.event_type;
+    const orderId = req.body.data?.order?.order_id || req.body.order_id;
 
-  if (order_status === 'PAID') {
-    const { error } = await supabase
-      .from('orders')
-      .update({ payment_status: 'success' })
-      .eq('cf_order_id', order_id);
+    if (eventType === 'PAYMENT_SUCCESS_WEBHOOK' || eventType === 'SUCCESS_PAYMENT') {
+        const { error } = await supabase
+            .from('orders')
+            .update({ payment_status: 'success' })
+            .eq('cf_order_id', orderId);
 
-    if (error) {
-      console.error('Supabase Update Error:', error);
-      return res.status(500).send('Database Update Failed');
+        if (error) {
+            console.error('Supabase Update Error:', error);
+            return res.status(500).send('Database Update Failed');
+        }
+        return res.status(200).send('Status Updated to Success');
     }
-
-    return res.status(200).send('Status Updated to Success');
-  }
-
-  return res.status(200).send('Event received');
+    res.status(200).send('Event received');
 });
 
 app.post('/api/create-cashfree-order', async (req, res) => {
