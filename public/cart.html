@@ -701,7 +701,7 @@
     // ══════════════════════════════════════════════════════════════════
     // CHECKOUT
     // ══════════════════════════════════════════════════════════════════
-    function initiateCheckout() {
+    async function initiateCheckout() {
       const errorEl = document.getElementById('errorMessage');
       errorEl.classList.remove('show');
 
@@ -735,7 +735,6 @@
         return;
       }
 
-
       if (!sanitizedAddress) {
         showError('Please enter your full shipping address.');
         return;
@@ -746,7 +745,6 @@
         return;
       }
 
-      // Show loading
       document.getElementById('loadingOverlay').classList.add('active');
       document.getElementById('payButton').disabled = true;
 
@@ -758,72 +756,71 @@
         return;
       }
 
-      const payload = {
-        customer_name: name,
-        customer_email: email,
-        customer_phone: phone,
-        customer_address: sanitizedAddress,
-        cart: JSON.parse(localStorage.getItem('drapeCart')) || [],
+      const grandTotalText = document.querySelector('.Grand.Total')?.textContent || '959';
+      const numericTotal = parseFloat(grandTotalText.replace(/[^0-9.]/g, '')) || 959;
+
+      const backendPayload = {
+        customer_name: document.getElementById('name')?.value || document.getElementById('customer-name')?.value || 'Nishant',
+        customer_email: document.getElementById('email')?.value || document.getElementById('customer-email')?.value || '',
+        customer_phone: document.getElementById('phone')?.value || document.getElementById('customer-phone')?.value || '',
+        grand_total: numericTotal,
       };
 
-      console.log('DATA BEING SENT TO BACKEND:', payload);
+      console.log('DATA BEING SENT TO BACKEND:', backendPayload);
 
-      fetch('https://drape-store-backend.onrender.com/api/create-cashfree-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          document.getElementById('loadingOverlay').classList.remove('active');
-
-          if (data.success === false || data.error) {
-            showError(data.message || 'Checkout failed. Please try again.');
-            document.getElementById('payButton').disabled = false;
-            return;
-          }
-
-          // Prefer redirect to payment_link if provided
-          if (data.payment_link) {
-            window.location.href = data.payment_link;
-            return;
-          }
-
-          // Fallback to payment_session_id for SDK checkout
-          if (!data.payment_session_id) {
-            showError('No payment session received. Please try again.');
-            document.getElementById('payButton').disabled = false;
-            return;
-          }
-
-          // Initialize Cashfree checkout
-          if (!cashfree) {
-            document.getElementById('loadingOverlay').classList.remove('active');
-            document.getElementById('payButton').disabled = false;
-            showError('Payment system not ready. Please refresh and try again.');
-            return;
-          }
-
-          try {
-            cashfree.checkout({
-              paymentSessionId: data.payment_session_id,
-            });
-            console.log('Cashfree checkout initialized');
-          } catch (error) {
-            console.error('Cashfree checkout error:', error);
-            document.getElementById('loadingOverlay').classList.remove('active');
-            document.getElementById('payButton').disabled = false;
-            showError('Payment initialization failed. Please try again.');
-          }
-        })
-        .catch((error) => {
-          console.error('Checkout error:', error);
-          document.getElementById('loadingOverlay').classList.remove('active');
-          showError('Network error. Please check your connection and try again.');
-          document.getElementById('payButton').disabled = false;
+      try {
+        const response = await fetch('https://drape-store-backend.onrender.com/api/create-cashfree-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(backendPayload),
         });
+
+        const data = await response.json();
+        document.getElementById('loadingOverlay').classList.remove('active');
+
+        if (data.success === false || data.error) {
+          showError(data.message || 'Checkout failed. Please try again.');
+          document.getElementById('payButton').disabled = false;
+          return;
+        }
+
+        if (data.payment_link) {
+          window.location.href = data.payment_link;
+          return;
+        }
+
+        if (!data.payment_session_id) {
+          showError('No payment session received. Please try again.');
+          document.getElementById('payButton').disabled = false;
+          return;
+        }
+
+        if (!cashfree) {
+          document.getElementById('loadingOverlay').classList.remove('active');
+          document.getElementById('payButton').disabled = false;
+          showError('Payment system not ready. Please refresh and try again.');
+          return;
+        }
+
+        try {
+          cashfree.checkout({
+            paymentSessionId: data.payment_session_id,
+          });
+          console.log('Cashfree checkout initialized');
+        } catch (error) {
+          console.error('Cashfree checkout error:', error);
+          document.getElementById('loadingOverlay').classList.remove('active');
+          document.getElementById('payButton').disabled = false;
+          showError('Payment initialization failed. Please try again.');
+        }
+      } catch (error) {
+        console.error('Checkout error:', error);
+        document.getElementById('loadingOverlay').classList.remove('active');
+        showError('Network error. Please check your connection and try again.');
+        document.getElementById('payButton').disabled = false;
+      }
     }
 
     // ══════════════════════════════════════════════════════════════════
