@@ -774,7 +774,12 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(backendPayload),
+          body: JSON.stringify({
+            customer_name: 'Nishant',
+            customer_email: 'worksofnn@gmail.com',
+            customer_phone: '8146757142',
+            grand_total: 959
+          }),
         });
 
         const data = await response.json();
