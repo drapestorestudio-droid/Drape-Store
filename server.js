@@ -13,9 +13,8 @@ const PORT = Number(process.env.PORT || 5000);
 const CASHFREE_APP_ID = String(process.env.CASHFREE_APP_ID || '').trim();
 const CASHFREE_SECRET_KEY = String(process.env.CASHFREE_SECRET_KEY || '').trim();
 const CASHFREE_ENV = String(process.env.CASHFREE_ENV || '').trim().toUpperCase();
-const CASHFREE_ENV_NAME = CASHFREE_ENV === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
-const CASHFREE_BASE_URL = CASHFREE_ENV === 'PRODUCTION'
-  ? 'https://api.cashfree.com/pg'
+const CASHFREE_BASE_URL = CASHFREE_ENV === 'PRODUCTION' 
+  ? 'https://api.cashfree.com/pg' 
   : 'https://sandbox.cashfree.com/pg';
 const CASHFREE_RETURN_URL = String(process.env.CASHFREE_RETURN_URL || '').trim();
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -222,7 +221,7 @@ app.post('/api/create-cashfree-order', async function (req, res) {
 
     const cleanClientId = CASHFREE_APP_ID;
     const cleanClientSecret = CASHFREE_SECRET_KEY;
-    const cashfreeUrl = String(CASHFREE_BASE_URL || '').replace(/\/$/, '') + '/orders';
+    const cashfreeUrl = `${CASHFREE_BASE_URL}/orders`;
 
     console.log('🔍 === CASHFREE DEBUG START ===');
     console.log('📦 URL/Environment being hit:', cashfreeUrl);
@@ -237,8 +236,7 @@ app.post('/api/create-cashfree-order', async function (req, res) {
           'x-client-id': cleanClientId,
           'x-client-secret': cleanClientSecret,
           'x-api-version': '2023-08-01',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         },
         timeout: 15000,
         validateStatus: () => true,
