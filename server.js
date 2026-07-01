@@ -99,15 +99,21 @@ app.get('/health', function (_req, res) {
 
 app.post('/api/create-cashfree-order', async (req, res) => {
   try {
-    const { customer_name, customer_email, customer_phone, grand_total, order_id } = req.body || {};
+    let { customer_name, customer_email, customer_phone, grand_total, order_id } = req.body || {};
 
-    if (!customer_email || !customer_phone || !grand_total) {
-      return res.status(400).json({ success: false, message: 'Missing required fields in request body.' });
-    }
+    // Assign safe defaults instead of failing when fields are missing.
+    customer_name = customer_name != null ? String(customer_name) : '';
+    customer_email = customer_email != null ? String(customer_email) : 'N/A';
+    customer_phone = customer_phone != null ? String(customer_phone) : '0';
+    grand_total = grand_total != null ? grand_total : 0;
 
     const cleanPhone = String(customer_phone).replace(/[^0-9]/g, '');
-    const cleanCustomerId = String(customer_email).toLowerCase().replace(/[^a-z0-9]/g, '_');
-    const cleanAmount = Number(parseFloat(grand_total).toFixed(2));
+    const cleanCustomerId = String((customer_email || 'N/A')).toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+    // Safely parse amount; fall back to 0 when parsing fails.
+    const parsedAmount = parseFloat(String(grand_total));
+    const safeAmount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
+    const cleanAmount = Number(safeAmount.toFixed(2));
     const safeOrderId = order_id || `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
     const requestData = {
